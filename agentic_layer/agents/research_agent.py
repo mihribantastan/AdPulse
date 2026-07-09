@@ -13,9 +13,8 @@ def research_node(state: CampaignState):
     target_input = state.get("target_url_or_product", "")
     current_logs = state.get("audit_log", [])
     
-    # 2. Beyni (LLM) Tanımla (Test için Gemini 1.5 Pro kullanıyoruz)
-    # Not: Çalışması için .env dosyasında GOOGLE_API_KEY tanımlı olmalıdır.
-    llm = ChatGoogleGenerativeAI(model="gemini-1.5-pro", temperature=0.3)
+    # Yeni ve Doğru Satır (Pro yerine Flash kullanıyoruz):
+    llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0.3)
     
     # 3. Ajanın Karakterini ve Görevini Belirle (Prompt Engineering)
     prompt = ChatPromptTemplate.from_messages([

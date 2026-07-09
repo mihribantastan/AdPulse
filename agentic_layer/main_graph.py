@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()  # Bu komut .env dosyasındaki şifreleri sisteme yükler
+
 from state.campaign_state import CampaignState
 from agents.research_agent import research_node
 
