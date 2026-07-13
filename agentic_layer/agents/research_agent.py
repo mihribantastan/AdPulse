@@ -1,42 +1,39 @@
 import os
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
+from openai import OpenAI
 from state.campaign_state import CampaignState
 
 def research_node(state: CampaignState):
-    """
-    Kullanıcının girdiği ürünü analiz edip kampanya stratejisi (brief) çıkarır.
-    """
-    print("[Research Agent] Pazar araştırması ve hedef kitle analizi başlatılıyor...")
-    
-    # 1. Masadaki belgeden (State) girdiyi al
+    print(" [Research Agent] Pazar araştırması saf OpenAI (Özel Anahtar) ile başlatılıyor...") 
     target_input = state.get("target_url_or_product", "")
     current_logs = state.get("audit_log", [])
     
-    # Yeni ve Doğru Satır (Pro yerine Flash kullanıyoruz):
-    llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash", temperature=0.3)
+    # .env dosyasından senin belirlediğin o özel anahtarı çekiyoruz
+    custom_api_key = os.environ.get("OPENAI_API_KEYS")
     
-    # 3. Ajanın Karakterini ve Görevini Belirle (Prompt Engineering)
-    prompt = ChatPromptTemplate.from_messages([
-        (
-            "system", 
-            "Sen uzman bir dijital pazarlama stratejistisin. "
-            "Görevin, verilen ürün veya web sitesi için kısa, yapılandırılmış bir hedef kitle ve "
-            "temel kampanya stratejisi (brief) oluşturmaktır. "
-            "Lütfen çıktıyı net başlıklar halinde ver."
-        ),
-        ("user", "Ürün/Web Sitesi: {target}\nLütfen strateji brief'ini hazırla.")
-    ])
+    # LangChain yerine doğrudan OpenAI istemcisini kuruyoruz
+    client = OpenAI(api_key=custom_api_key)
     
-    # 4. LLM'i çalıştır
-    chain = prompt | llm
-    response = chain.invoke({"target": target_input})
+    # Saf OpenAI Chat Completions API'sine istek atıyoruz
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        temperature=0.3,
+        messages=[
+            {
+                "role": "system", 
+                "content": "Sen uzman bir pazar araştırmacısı ve dijital pazarlama stratejistisin. Verilen ürünü/hizmeti analiz et, hedef kitleyi belirle ve vurucu bir strateji brief'i yaz."
+            },
+            {
+                "role": "user", 
+                "content": f"Ürün/Hizmet: {target_input}\nLütfen strateji brief'ini oluştur."
+            }
+        ]
+    )
     
-    print("[Research Agent] Brief başarıyla oluşturuldu.")
+    # OpenAI'ın JSON formatındaki yanıtından sadece metni (content) çekiyoruz
+    brief_content = response.choices[0].message.content
     
-    # 5. Masadaki belgeyi (State) güncelle
-    # LangGraph sadece return ettiğimiz alanları mevcut State'in üzerine yazar (update)
+    print(" [Research Agent] Brief başarıyla oluşturuldu.")
     return {
-        "strategy_brief": response.content,
-        "audit_log": current_logs + ["Research Agent: Hedef kitle ve kampanya stratejisi oluşturuldu."]
+        "strategy_brief": brief_content,
+        "audit_log": current_logs + ["Research Agent: Pazar araştırması saf OpenAI istemcisi ile tamamlandı."]
     }
