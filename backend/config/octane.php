@@ -106,7 +106,7 @@ return [
             FlushOnce::class,
             FlushTemporaryContainerInstances::class,
             // DisconnectFromDatabases::class,
-            // CollectGarbage::class,
+            CollectGarbage::class, 
         ],
 
         WorkerErrorOccurred::class => [
@@ -135,7 +135,9 @@ return [
     ],
 
     'flush' => [
-        //
+        \Illuminate\Broadcasting\BroadcastServiceProvider::class,
+        \Illuminate\Auth\AuthServiceProvider::class,
+        \Illuminate\Pagination\PaginationServiceProvider::class,
     ],
 
     /*
