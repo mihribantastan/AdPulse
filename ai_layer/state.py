@@ -1,5 +1,6 @@
 from typing import TypedDict, List, Optional
 
+
 class CampaignState(TypedDict):
     # API'den (Postgres'ten) gelecek temel veriler
     campaign_id: int
