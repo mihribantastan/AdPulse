@@ -1,3 +1,4 @@
+import requests
 try:
     import redis
 except ImportError:
@@ -41,6 +42,27 @@ def listen_for_campaigns():
                 
                 print(f"⏸️ Kampanya #{initial_state['campaign_id']} Media planlaması öncesi duraklatıldı!")
                 print("İnsan onayı bekleniyor...\n")
+                
+                # ==========================================
+                # YENİ EKLENEN KISIM: LARAVEL'E DÖNÜŞ KÖPRÜSÜ
+                # ==========================================
+                print("📦 Ajanlar işi bitirdi, AdPulse sonuçları Laravel'e gönderiliyor...")
+                
+                laravel_url = "http://localhost:8000/api/campaigns/complete"
+                
+                # Yapay zekanın state içindeki sonuçlarını paketliyoruz
+                payload = {
+                    "campaign_id": state_after_creative.get("campaign_id"),
+                    "target_product": state_after_creative.get("target_product"),
+                    "generated_content": state_after_creative.get("ad_copy", "Metin başarıyla üretildi!") 
+                }
+                
+                try:
+                    response = requests.post(laravel_url, json=payload)
+                    print(f"✅ Laravel'den gelen cevap: {response.json()}")
+                except Exception as e:
+                    print(f"❌ Laravel'e gönderirken hata oluştu: {e}")
+                # ==========================================
                 
             else:
                 continue

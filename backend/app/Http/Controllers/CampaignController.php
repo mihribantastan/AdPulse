@@ -32,4 +32,15 @@ class CampaignController extends Controller
             'campaign_id' => $campaignId
         ], 200);
     }
+
+    public function complete(Request $request)
+    {
+        // Python'dan gelen bitmiş reklam verisini alıyoruz
+        $result = $request->all();
+
+        // Şimdilik veritabanımız olmadığı için gelen sonucu Laravel'in log dosyasına yazdırıyoruz
+        \Log::info('YAPAY ZEKA GÖREVİ TAMAMLADI! 🚀', $result);
+
+        return response()->json(['message' => 'Sonuçlar Laravel tarafından başarıyla teslim alındı!']);
+    }
 }
