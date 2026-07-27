@@ -4,43 +4,63 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redis;
+use App\Models\Campaign; // Veritabanı temsilcimizi (Model) içeri alıyoruz
 
 class CampaignController extends Controller
 {
+    // Yeni kampanya oluşturma ve kuyruğa atma
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'target_product' => 'required|string|max:255',
+            'target_product' => 'required|string',
             'strategy_brief' => 'required|string',
             'daily_budget' => 'required|numeric',
         ]);
 
-        $campaignId = rand(1000, 9999);
-
-        $data = [
-            'campaign_id' => $campaignId,
+        // 1. Kampanyayı veritabanına "pending" (bekliyor) olarak kaydet
+        $campaign = Campaign::create([
             'target_product' => $validated['target_product'],
             'strategy_brief' => $validated['strategy_brief'],
-            'daily_budget' => (float) $validated['daily_budget']
+            'daily_budget' => $validated['daily_budget'],
+            'status' => 'pending',
+        ]);
+
+        // 2. Python'a göndereceğimiz paketi hazırla (Artık gerçek veritabanı ID'sini yolluyoruz)
+        $queueData = [
+            'campaign_id' => $campaign->id, 
+            'target_product' => $campaign->target_product,
+            'strategy_brief' => $campaign->strategy_brief,
+            'daily_budget' => $campaign->daily_budget,
         ];
 
-        Redis::rpush('adpulse_queue', json_encode($data));
+        // 3. Paketi Redis üzerinden ajanlara fırlat
+        Redis::rpush('adpulse_queue', json_encode($queueData));
 
         return response()->json([
-            'status' => 'success',
-            'message' => 'Kampanya yapay zeka ajanlarına başarıyla iletildi! 🚀',
-            'campaign_id' => $campaignId
-        ], 200);
+            'message' => 'Kampanya veritabanına kaydedildi ve yapay zeka ajanlarına iletildi! 🚀',
+            'campaign_id' => $campaign->id
+        ]);
     }
 
+    // Python'dan dönen sonuçları karşılama
     public function complete(Request $request)
     {
-        // Python'dan gelen bitmiş reklam verisini alıyoruz
-        $result = $request->all();
+        $data = $request->all();
 
-        // Şimdilik veritabanımız olmadığı için gelen sonucu Laravel'in log dosyasına yazdırıyoruz
-        \Log::info('YAPAY ZEKA GÖREVİ TAMAMLADI! 🚀', $result);
+        // 1. Gelen ID ile veritabanından o kampanyayı bul
+        $campaign = Campaign::find($data['campaign_id']);
 
-        return response()->json(['message' => 'Sonuçlar Laravel tarafından başarıyla teslim alındı!']);
+        if ($campaign) {
+            // 2. Yapay zekanın ürettiği metni kaydet ve durumu güncelle
+            $campaign->generated_content = $data['generated_content'];
+            $campaign->status = 'completed';
+            $campaign->save();
+
+            \Log::info("AdPulse Başarısı: Kampanya ID {$campaign->id} veritabanına işlendi! 🏆");
+
+            return response()->json(['message' => 'Sonuçlar veritabanına başarıyla kaydedildi!']);
+        }
+
+        return response()->json(['message' => 'Kampanya bulunamadı!'], 404);
     }
 }
