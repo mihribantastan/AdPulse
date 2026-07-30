@@ -2,25 +2,24 @@
 
 namespace App\Domains\Campaign\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Campaign extends Model
 {
-    // Define the fillable attributes for mass assignment
+    use HasFactory;
+    // Mass-assignment hatasını çözen koruma alanı
     protected $fillable = [
-        'target_url_or_product',
-        'strategy_brief',
-        'creative_texts',
-        'creative_images',
-        'target_audience',
-        'daily_budget',
-        'approval_status',
+        'target_url_or_product', // target_product yerine doğru kolon adı
+        'budget',
+        'platform',
+        'status',
+        'generated_content',
     ];
 
-    // Define the casts for JSON fields and other attributes
+    // JSON verilerini otomatik diziye çevirmesi için
     protected $casts = [
-        'creative_texts' => 'array',
-        'creative_images' => 'array',
-        'daily_budget' => 'decimal:2',
+        'generated_content' => 'array',
+        'budget' => 'decimal:2',
     ];
 }
