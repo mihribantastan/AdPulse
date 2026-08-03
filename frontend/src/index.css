@@ -7,8 +7,8 @@
 @layer base {
   body {
     font-family: 'Inter', sans-serif;
-    background-color: #F9FAFB;
-    color: #111827;
+    background-color: #f5f7fa; /* Seçtiğin arka plan */
+    color: #0f172a; /* Dış alanlar için koyu metin */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }

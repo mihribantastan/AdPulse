@@ -11,13 +11,17 @@ export default {
       },
       colors: {
         frankie: {
-          bg: '#F9FAFB',     /* Göz yormayan uçuk gri/kemik arka plan */
-          card: '#FFFFFF',   /* Kartlar için tertemiz saf beyaz */
-          border: '#E5E7EB', /* Çok yumuşak, zarif açık gri çerçeve */
-          text: '#111827',   /* Saf siyah yerine göz yormayan koyu füme */
-          muted: '#6B7280',  /* Okunabilir yumuşak gri */
-          hover: '#F3F4F6',  /* Hover durumu için tatlı bir açık gri */
-          accent: '#0F172A'  /* Butonlar için premium koyu lacivert/siyah */
+          /* Dış Alan (Aydınlık) */
+          bg: '#f5f7fa',        /* İstediğin ana arka plan */
+          text: '#0f172a',      /* Dışarıdaki koyu metinler (Başlıklar vb.) */
+          muted: '#64748b',     /* Dışarıdaki soluk metinler */
+          border: '#e2e8f0',    /* Dış çerçeveler */
+          
+          /* Kart İçi (Karanlık) */
+          card: '#1e293b',      /* İstediğin kart rengi (Slate 800) */
+          cardText: '#f8fafc',  /* Kart içindeki beyaz metinler */
+          cardMuted: '#94a3b8', /* Kart içindeki soluk gri metinler */
+          cardBorder: '#334155' /* Kartların ince çerçeveleri */
         }
       },
       borderRadius: {

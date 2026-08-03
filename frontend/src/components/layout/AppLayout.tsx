@@ -5,11 +5,7 @@ import { ChatbotWidget } from '../ChatbotWidget';
 
 export function AppLayout({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode; }) {
   return (
-    <div className="flex h-screen bg-frankie-bg text-frankie-text overflow-hidden selection:bg-frankie-accent selection:text-white relative">
-      
-      {/* Arka planda çok hafif, modern bir ızgara deseni */}
-      <div className="absolute inset-0 bg-[radial-gradient(#E5E7EB_1px,transparent_1px)] bg-[size:24px_24px] opacity-70 pointer-events-none -z-10"></div>
-      
+    <div className="flex h-screen bg-frankie-bg text-frankie-text overflow-hidden selection:bg-frankie-card selection:text-white">
       <Sidebar />
       
       <div className="flex-1 flex flex-col min-w-0 z-10 mr-6 my-6">
