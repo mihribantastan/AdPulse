@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redis;
 use App\Domains\Campaign\Models\Campaign;
 
 class CampaignController extends Controller
@@ -35,7 +37,8 @@ class CampaignController extends Controller
             'ai_analysis_results' => null,
         ]);
 
-        // TODO: Yapay zeka ajanlarını (Python/AI Layer) tetikleyecek kod buraya gelecek
+        // 2. Ajanları tetikle: kampanyayı Redis kuyruğuna at (ai_layer/queue_worker.py dinliyor)
+        $this->dispatchToAgentQueue($campaign);
 
         return response()->json([
             'message' => 'Kampanya oluşturuldu ve ajanlara iletildi.',
@@ -60,5 +63,25 @@ class CampaignController extends Controller
             'message' => 'Kampanya AI sonuçlarıyla güncellendi.',
             'data' => $campaign,
         ]);
+    }
+
+    // ai_layer/queue_worker.py'nin BLPOP ile dinlediği "adpulse_queue" listesine kampanyayı iter
+    private function dispatchToAgentQueue(Campaign $campaign): void
+    {
+        try {
+            Redis::rpush('adpulse_queue', json_encode([
+                'campaign_id' => $campaign->id,
+                'target_product' => $campaign->target_url_or_product,
+                'target_audience' => $campaign->target_audience,
+                'platforms' => $campaign->platforms,
+                'daily_budget' => (float) $campaign->daily_budget,
+            ]));
+        } catch (\Throwable $e) {
+            // Kuyruk şu an ayakta değilse kampanya kaydı yine de oluşmuş olsun;
+            // ajan tetikleme başarısızlığı kullanıcıya 500 olarak yansımasın.
+            Log::error('Ajan kuyruğuna gönderim başarısız oldu: ' . $e->getMessage(), [
+                'campaign_id' => $campaign->id,
+            ]);
+        }
     }
 }
