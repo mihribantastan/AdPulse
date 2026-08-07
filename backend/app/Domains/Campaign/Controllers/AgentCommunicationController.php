@@ -23,13 +23,23 @@ class AgentCommunicationController extends Controller
             'creative_texts' => 'nullable|array',
             'creative_images' => 'nullable|array',
             'target_audience' => 'nullable|string|max:255',
+            'platforms' => 'nullable|array',
             'daily_budget' => 'required|numeric|min:0',
         ]);
 
         // Create a new campaign record in the database
-        // Note: In a real application, you might want to handle exceptions and errors during creation.
-        // For demonstration purposes, we will create a dummy data object to return
-        $campaign = Campaign::create($validated);
+        $campaign = Campaign::create([
+            'target_url_or_product' => $validated['target_url_or_product'],
+            'target_audience' => $validated['target_audience'] ?? null,
+            'platforms' => $validated['platforms'] ?? [],
+            'daily_budget' => $validated['daily_budget'],
+            'approval_status' => 'pending',
+            'ai_analysis_results' => [
+                'strategy_brief' => $validated['strategy_brief'] ?? null,
+                'creative_texts' => $validated['creative_texts'] ?? null,
+                'creative_images' => $validated['creative_images'] ?? null,
+            ],
+        ]);
 
         // Refresh the campaign instance to ensure we have the latest data
         $campaign->refresh();

@@ -20,17 +20,19 @@ class CampaignController extends Controller
     {
         $validated = $request->validate([
             'target_url_or_product' => 'required|string|max:255',
-            'budget' => 'required|numeric|min:100',
-            'platform' => 'required|string',
+            'target_audience' => 'nullable|string|max:255',
+            'platforms' => 'required|array|min:1',
+            'daily_budget' => 'required|numeric|min:1',
         ]);
 
         // 1. Kampanyayı veritabanına "pending" (bekliyor) olarak kaydet
         $campaign = Campaign::create([
             'target_url_or_product' => $validated['target_url_or_product'],
-            'budget' => $validated['budget'],
-            'platform' => $validated['platform'],
-            'status' => 'pending',
-            'generated_content' => null, 
+            'target_audience' => $validated['target_audience'] ?? null,
+            'platforms' => $validated['platforms'],
+            'daily_budget' => $validated['daily_budget'],
+            'approval_status' => 'pending',
+            'ai_analysis_results' => null,
         ]);
 
         // TODO: Yapay zeka ajanlarını (Python/AI Layer) tetikleyecek kod buraya gelecek
@@ -39,5 +41,24 @@ class CampaignController extends Controller
             'message' => 'Kampanya oluşturuldu ve ajanlara iletildi.',
             'data' => $campaign
         ], 201);
+    }
+
+    // Python (ai_layer/queue_worker.py) ajanların ürettiği sonuçla kampanyayı günceller
+    public function complete(Request $request)
+    {
+        $validated = $request->validate([
+            'campaign_id' => 'required|integer|exists:campaigns,id',
+            'generated_content' => 'nullable',
+        ]);
+
+        $campaign = Campaign::findOrFail($validated['campaign_id']);
+        $campaign->update([
+            'ai_analysis_results' => $validated['generated_content'] ?? null,
+        ]);
+
+        return response()->json([
+            'message' => 'Kampanya AI sonuçlarıyla güncellendi.',
+            'data' => $campaign,
+        ]);
     }
 }

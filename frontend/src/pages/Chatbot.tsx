@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bot, Send, Sparkles, User as UserIcon } from 'lucide-react';
+import { Bot, Send, User as UserIcon } from 'lucide-react';
 import { AppLayout } from '../components/layout/AppLayout';
 
 const SUGGESTIONS = [
@@ -33,31 +33,28 @@ export function Chatbot() {
 
   return (
     <AppLayout title="AI Asistan" subtitle="Kampanyalarınız hakkında doğal dilde sorular sorun.">
-      {/* Cam Efektli Ana Sohbet Kapsülü */}
-      <div className="flex flex-col h-[calc(100vh-140px)] bg-white/70 dark:bg-[#0A101D]/70 backdrop-blur-2xl rounded-[2.5rem] border border-white dark:border-slate-800/50 shadow-[0_20px_60px_rgba(59,130,246,0.05)] dark:shadow-[0_20px_60px_rgba(34,211,238,0.05)] overflow-hidden">
-        
+      <div className="flex flex-col h-[calc(100vh-160px)] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+
         {/* Mesajların Aktığı Alan */}
-        <div className="flex-1 overflow-y-auto p-8 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {messages.map((m, i) => (
-            <div key={i} className={`flex gap-4 ${m.from === 'user' ? 'flex-row-reverse' : ''} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-              
-              {/* Avatar */}
+            <div key={i} className={`flex gap-3 ${m.from === 'user' ? 'flex-row-reverse' : ''}`}>
+
               <div
-                className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 shadow-md ${
-                  m.from === 'user' 
-                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-cyan-400 border border-slate-100 dark:border-slate-700' 
-                    : 'bg-gradient-to-br from-blue-600 to-indigo-500 dark:from-cyan-400 dark:to-violet-600 shadow-[0_0_15px_rgba(59,130,246,0.4)] dark:shadow-[0_0_20px_rgba(34,211,238,0.3)]'
+                className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                  m.from === 'user'
+                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                    : 'bg-blue-600 dark:bg-blue-500'
                 }`}
               >
-                {m.from === 'user' ? <UserIcon size={20} /> : <Bot size={24} className="text-white" />}
+                {m.from === 'user' ? <UserIcon size={16} /> : <Bot size={17} className="text-white" />}
               </div>
-              
-              {/* Mesaj Baloncuğu */}
+
               <div
-                className={`max-w-[75%] px-6 py-4 text-sm font-bold leading-relaxed shadow-sm ${
+                className={`max-w-[75%] px-4 py-3 text-sm leading-relaxed ${
                   m.from === 'user'
-                    ? 'bg-blue-600 dark:bg-cyan-500 text-white rounded-[2rem] rounded-tr-sm'
-                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700/80 rounded-[2rem] rounded-tl-sm'
+                    ? 'bg-blue-600 dark:bg-blue-500 text-white rounded-2xl rounded-tr-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl rounded-tl-sm'
                 }`}
               >
                 {m.text}
@@ -67,14 +64,14 @@ export function Chatbot() {
         </div>
 
         {/* Hızlı Aksiyon / Tavsiye Butonları */}
-        <div className="px-8 pb-4 flex flex-wrap gap-2.5">
+        <div className="px-6 pb-3 flex flex-wrap gap-2">
           {SUGGESTIONS.map((s) => (
             <button
               key={s}
               onClick={() => send(s)}
-              className="flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-cyan-400 bg-blue-50 dark:bg-cyan-500/10 border border-blue-200 dark:border-cyan-500/20 px-4 py-2.5 rounded-full hover:bg-blue-100 dark:hover:bg-cyan-500/20 hover:scale-105 transition-all shadow-sm"
+              className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-3 py-2 rounded-full hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
             >
-              <Sparkles size={14} className="animate-pulse" /> {s}
+              {s}
             </button>
           ))}
         </div>
@@ -85,21 +82,21 @@ export function Chatbot() {
             e.preventDefault();
             send(input);
           }}
-          className="p-6 bg-white/80 dark:bg-[#0A101D]/80 backdrop-blur-md border-t border-slate-100 dark:border-slate-800/80 relative"
+          className="p-5 border-t border-slate-100 dark:border-slate-800"
         >
-          <div className="relative flex items-center max-w-5xl mx-auto">
+          <div className="relative flex items-center max-w-4xl mx-auto">
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Asistana bir talimat ver..."
-              className="w-full bg-slate-100 dark:bg-slate-900 border border-transparent focus:border-blue-500 dark:focus:border-cyan-500 rounded-full pl-8 pr-16 py-5 text-sm font-bold outline-none transition-colors shadow-inner dark:text-white"
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full pl-5 pr-14 py-3.5 text-sm outline-none focus:border-blue-500 dark:focus:border-blue-500 transition-colors text-slate-900 dark:text-white"
             />
             <button
               type="submit"
               disabled={!input.trim()}
-              className="absolute right-2 w-12 h-12 shrink-0 rounded-full bg-blue-600 dark:bg-cyan-500 text-white flex items-center justify-center shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 transition-all"
+              className="absolute right-1.5 w-9 h-9 shrink-0 rounded-full bg-blue-600 dark:bg-blue-500 text-white flex items-center justify-center disabled:opacity-40 hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
             >
-              <Send size={18} className="ml-1" />
+              <Send size={15} />
             </button>
           </div>
         </form>

@@ -1,12 +1,9 @@
-import { createContext, useContext } from 'react';
+import type { ReactNode } from 'react';
+import { AuthContext, type AuthUser } from './auth-context';
 
-const AuthContext = createContext<any>(null);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const user: AuthUser = { name: 'Mihriban', email: 'admin@adpulse.com' };
 
-export const useAuth = () => useContext(AuthContext);
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const user = { name: 'Mihriban', email: 'admin@adpulse.com' };
-  
   return (
     <AuthContext.Provider value={{ user, demo: true, logout: () => console.log('Çıkış yapıldı') }}>
       {children}
