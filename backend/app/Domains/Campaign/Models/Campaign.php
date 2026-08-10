@@ -15,6 +15,8 @@ class Campaign extends Model
         'key_features',
         'brand_tone',
         'extra_notes',
+        'campaign_goal',
+        'cta_preference',
         'platforms',
         'daily_budget',
         'approval_status',
@@ -29,4 +31,9 @@ class Campaign extends Model
         'daily_budget' => 'decimal:2',
         'selected_creative_index' => 'integer',
     ];
+
+    public function assets()
+    {
+        return $this->hasMany(CampaignAsset::class);
+    }
 }

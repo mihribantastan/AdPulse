@@ -21,6 +21,10 @@ def _build_brief_context(state: CampaignState) -> str:
         lines.append(f"Ürünün öne çıkan özellikleri / satış noktaları: {state['key_features']}")
     if state.get("brand_tone"):
         lines.append(f"İstenen marka tonu: {state['brand_tone']}")
+    if state.get("campaign_goal"):
+        lines.append(f"Kampanya hedefi: {state['campaign_goal']}")
+    if state.get("cta_preference"):
+        lines.append(f"İstenen harekete geçirici çağrı (CTA): {state['cta_preference']}")
     if state.get("extra_notes"):
         lines.append(f"Kullanıcının ek istekleri/talimatları: {state['extra_notes']}")
     return "\n".join(lines)
@@ -66,6 +70,11 @@ def creative_agent(state: CampaignState):
          "genel geçer 'kaliteli', 'harika' gibi sıfatlar değil, verilen özelliklerin kendisi) kullan. "
          "Kullanıcının belirttiği marka tonuna (ör. samimi, lüks, eğlenceli, profesyonel) harfiyen uy "
          "ve varsa ek isteklerini/talimatlarını mutlaka uygula. "
+         "Kampanya hedefi belirtildiyse mesajın yapısını ona göre kur: 'Marka Bilinirliği' ise hikaye/marka "
+         "anlatımına, 'Satış/Dönüşüm' ise aciliyet ve somut faydaya, 'Web Sitesi Trafiği' ise merak uyandırmaya, "
+         "'Potansiyel Müşteri Toplama' ise güven/teklif netliğine, 'Uygulama İndirme' ise kolaylık/anlık faydaya "
+         "ağırlık ver. CTA tercihi belirtildiyse ad_copy'nin SON cümlesi mutlaka o çağrıyı (ör. 'Hemen Al', "
+         "'Ücretsiz Dene') birebir veya çok yakın bir ifadeyle içersin. "
          "Her ad_copy KISA BİR SLOGAN OLMASIN: dikkat çeken bir açılış cümlesi, ürünün somut özelliklerine "
          "dayanan bir gövde ve net bir harekete geçirici çağrı (CTA) içeren, Meta/Google Ads reklam metni "
          "olarak kullanılabilecek 4-6 cümlelik, doyurucu bir metin yaz (yaklaşık 400-600 karakter). "

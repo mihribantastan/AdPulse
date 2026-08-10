@@ -1,4 +1,4 @@
-import type { Campaign, DashboardSummary, PlatformBreakdownPoint, TimeseriesPoint } from './types';
+import type { Campaign, CampaignAsset, DashboardSummary, PlatformBreakdownPoint, TimeseriesPoint } from './types';
 
 // .env dosyasındaki adresi çeker
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -27,10 +27,23 @@ export const campaignsApi = {
     method: 'POST',
     body: JSON.stringify({ selected_creative_index: selectedCreativeIndex }),
   }),
-  create: (data: Partial<Campaign>) => fetchAPI<Campaign>('/campaigns', {
+  create: (data: Partial<Campaign>) => fetchAPI<{ message: string; data: Campaign }>('/campaigns', {
     method: 'POST',
     body: JSON.stringify(data),
   }),
+  // Content-Type'ı elle vermiyoruz: multipart/form-data sınırını (boundary) tarayıcı kendi ekler.
+  uploadAssets: async (id: string, files: File[]) => {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files[]', file));
+    const response = await fetch(`${API_URL}/campaigns/${id}/assets`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) {
+      throw new Error(`API Hatası: ${response.status} ${response.statusText}`);
+    }
+    return response.json() as Promise<{ data: CampaignAsset[] }>;
+  },
 };
 
 // İstatistik İstekleri

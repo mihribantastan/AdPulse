@@ -21,6 +21,26 @@ export const BRAND_TONE_LABELS: Record<BrandTone, string> = {
   enerjik: 'Enerjik / Gençlere Hitap Eden',
 };
 
+export type CampaignGoal = 'brand_awareness' | 'conversions' | 'traffic' | 'lead_generation' | 'app_installs';
+
+export const CAMPAIGN_GOAL_LABELS: Record<CampaignGoal, string> = {
+  brand_awareness: 'Marka Bilinirliği',
+  conversions: 'Satış / Dönüşüm',
+  traffic: 'Web Sitesi Trafiği',
+  lead_generation: 'Potansiyel Müşteri Toplama',
+  app_installs: 'Uygulama İndirme',
+};
+
+export type CtaPreference = 'buy_now' | 'learn_more' | 'try_free' | 'sign_up' | 'contact_us';
+
+export const CTA_LABELS: Record<CtaPreference, string> = {
+  buy_now: 'Şimdi Satın Al',
+  learn_more: 'Daha Fazla Bilgi',
+  try_free: 'Ücretsiz Dene',
+  sign_up: 'Kayıt Ol',
+  contact_us: 'İletişime Geç',
+};
+
 export type Creative = {
   target_audience: string;
   ad_copy: string;
@@ -33,6 +53,13 @@ export type AiAnalysisResults = {
   creatives?: Creative[];
 };
 
+export type CampaignAsset = {
+  id: number;
+  type: 'image' | 'video';
+  url: string;
+  original_name?: string | null;
+};
+
 export type Campaign = {
   id: string;
   target_url_or_product: string;
@@ -40,11 +67,14 @@ export type Campaign = {
   key_features?: string | null;
   brand_tone?: string | null;
   extra_notes?: string | null;
+  campaign_goal?: string | null;
+  cta_preference?: string | null;
   platforms: Platform[];
   daily_budget: number;
   approval_status: ApprovalStatus;
   ai_analysis_results?: AiAnalysisResults | null;
   selected_creative_index?: number | null;
+  assets?: CampaignAsset[];
 };
 
 export type DashboardSummary = {

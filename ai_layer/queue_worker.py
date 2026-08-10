@@ -38,6 +38,8 @@ def listen_for_campaigns():
                     "key_features": campaign_data.get("key_features"),
                     "brand_tone": campaign_data.get("brand_tone"),
                     "extra_notes": campaign_data.get("extra_notes"),
+                    "campaign_goal": campaign_data.get("campaign_goal"),
+                    "cta_preference": campaign_data.get("cta_preference"),
                     "daily_budget": float(campaign_data.get("daily_budget", 0)),
                     "status": "pending"
                 }

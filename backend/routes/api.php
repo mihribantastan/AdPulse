@@ -17,6 +17,9 @@ Route::post('/campaigns/complete', [CampaignController::class, 'complete']);
 // Kullanıcı 3 reklamdan birini seçip onaylar
 Route::post('/campaigns/{campaign}/approve', [CampaignController::class, 'approve']);
 
+// Kullanıcının kendi görsel/videolarını yüklemesi
+Route::post('/campaigns/{campaign}/assets', [CampaignController::class, 'uploadAssets']);
+
 // EĞER CONTROLLER HAZIRSA BUNU KULLAN:
 Route::get('/campaigns', [CampaignController::class, 'index']);
 Route::get('/campaigns/{campaign}', [CampaignController::class, 'show']);

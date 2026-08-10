@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Activity, Wallet, Users, Check } from 'lucide-react';
+import { Activity, Wallet, Users, Check, ImagePlus } from 'lucide-react';
 import { AppLayout } from '../components/layout/AppLayout';
 import { PlatformBadge } from '../components/PlatformBadge';
 import { campaignsApi } from '../lib/api';
@@ -83,6 +83,25 @@ export function CampaignDetail() {
             </div>
           )}
         </div>
+
+        {campaign.assets && campaign.assets.length > 0 && (
+          <div>
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+              <ImagePlus size={16} className="text-slate-400" /> Yüklediğiniz Görsel/Videolar
+            </h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {campaign.assets.map((asset) => (
+                <div key={asset.id} className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 aspect-square">
+                  {asset.type === 'video' ? (
+                    <video src={asset.url} controls className="w-full h-full object-cover" />
+                  ) : (
+                    <img src={asset.url} alt={asset.original_name ?? ''} className="w-full h-full object-cover" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {!results && (
           <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-12 text-center space-y-2">

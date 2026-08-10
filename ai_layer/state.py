@@ -10,6 +10,8 @@ class CampaignState(TypedDict):
     key_features: Optional[str]
     brand_tone: Optional[str]
     extra_notes: Optional[str]
+    campaign_goal: Optional[str]
+    cta_preference: Optional[str]
 
     # Research Agent çıktısı: sonraki ajanların temel aldığı strateji özeti
     strategy_brief: Optional[str]
