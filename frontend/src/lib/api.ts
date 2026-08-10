@@ -23,6 +23,10 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
 export const campaignsApi = {
   list: () => fetchAPI<Campaign[]>('/campaigns'),
   get: (id: string) => fetchAPI<Campaign>(`/campaigns/${id}`),
+  approve: (id: string, selectedCreativeIndex: number) => fetchAPI<{ data: Campaign }>(`/campaigns/${id}/approve`, {
+    method: 'POST',
+    body: JSON.stringify({ selected_creative_index: selectedCreativeIndex }),
+  }),
   create: (data: Partial<Campaign>) => fetchAPI<Campaign>('/campaigns', {
     method: 'POST',
     body: JSON.stringify(data),

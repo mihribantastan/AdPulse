@@ -52,6 +52,26 @@ class CampaignController extends Controller
         ], 201);
     }
 
+    // Kullanıcı, ajanın ürettiği 3 reklamdan birini seçip onaylar
+    public function approve(Request $request, Campaign $campaign)
+    {
+        $creatives = $campaign->ai_analysis_results['creatives'] ?? [];
+
+        $validated = $request->validate([
+            'selected_creative_index' => ['required', 'integer', 'min:0', 'max:' . max(count($creatives) - 1, 0)],
+        ]);
+
+        $campaign->update([
+            'selected_creative_index' => $validated['selected_creative_index'],
+            'approval_status' => 'approved',
+        ]);
+
+        return response()->json([
+            'message' => 'Reklam seçildi ve kampanya onaylandı.',
+            'data' => $campaign,
+        ]);
+    }
+
     // Python (ai_layer/queue_worker.py) ajanların ürettiği sonuçla kampanyayı günceller
     public function complete(Request $request)
     {

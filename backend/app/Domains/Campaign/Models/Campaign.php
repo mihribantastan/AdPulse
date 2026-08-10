@@ -16,6 +16,7 @@ class Campaign extends Model
         'daily_budget',
         'approval_status',
         'ai_analysis_results',
+        'selected_creative_index',
     ];
 
     // JSON verilerini otomatik diziye çevirmesi için
@@ -23,5 +24,6 @@ class Campaign extends Model
         'platforms' => 'array',
         'ai_analysis_results' => 'array',
         'daily_budget' => 'decimal:2',
+        'selected_creative_index' => 'integer',
     ];
 }

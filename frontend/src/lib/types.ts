@@ -31,6 +31,7 @@ export type Campaign = {
   daily_budget: number;
   approval_status: ApprovalStatus;
   ai_analysis_results?: AiAnalysisResults | null;
+  selected_creative_index?: number | null;
 };
 
 export type DashboardSummary = {

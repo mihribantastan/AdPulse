@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Activity, Wallet, Users } from 'lucide-react';
+import { Activity, Wallet, Users, Check } from 'lucide-react';
 import { AppLayout } from '../components/layout/AppLayout';
 import { PlatformBadge } from '../components/PlatformBadge';
 import { campaignsApi } from '../lib/api';
@@ -15,6 +15,18 @@ const STATUS_LABEL: Record<Campaign['approval_status'], string> = {
 export function CampaignDetail() {
   const { id } = useParams<{ id: string }>();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [selecting, setSelecting] = useState<number | null>(null);
+
+  const handleSelect = async (index: number) => {
+    if (!id) return;
+    setSelecting(index);
+    try {
+      const { data } = await campaignsApi.approve(id, index);
+      setCampaign(data);
+    } finally {
+      setSelecting(null);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -92,23 +104,55 @@ export function CampaignDetail() {
 
         {results?.creatives && results.creatives.length > 0 && (
           <div>
-            <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Üretilen Reklamlar</h4>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-white">Üretilen Reklamlar</h4>
+              {campaign.approval_status === 'pending' && (
+                <p className="text-xs text-slate-400">Yayınlanacak reklamı seç</p>
+              )}
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {results.creatives.map((creative, i) => (
-                <div key={i} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden flex flex-col">
-                  {creative.generated_image_url ? (
-                    <img src={creative.generated_image_url} alt={creative.target_audience} className="w-full aspect-square object-cover" />
-                  ) : (
-                    <div className="w-full aspect-square bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 text-xs">
-                      Görsel yok
+              {results.creatives.map((creative, i) => {
+                const isSelected = campaign.selected_creative_index === i;
+                const isApproved = campaign.approval_status !== 'pending';
+                return (
+                  <div
+                    key={i}
+                    className={`bg-white dark:bg-slate-900 border rounded-2xl overflow-hidden flex flex-col transition-colors ${
+                      isSelected
+                        ? 'border-blue-600 dark:border-blue-500 ring-1 ring-blue-600 dark:ring-blue-500'
+                        : 'border-slate-200 dark:border-slate-800'
+                    } ${isApproved && !isSelected ? 'opacity-50' : ''}`}
+                  >
+                    <div className="relative">
+                      {creative.generated_image_url ? (
+                        <img src={creative.generated_image_url} alt={creative.target_audience} className="w-full aspect-square object-cover" />
+                      ) : (
+                        <div className="w-full aspect-square bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 text-xs">
+                          Görsel yok
+                        </div>
+                      )}
+                      {isSelected && (
+                        <span className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-blue-600 text-white text-[11px] font-medium px-2 py-1 rounded-full">
+                          <Check size={12} strokeWidth={2.5} /> Seçildi
+                        </span>
+                      )}
                     </div>
-                  )}
-                  <div className="p-4 space-y-2">
-                    <p className="text-xs font-medium text-blue-600 dark:text-blue-400">{creative.target_audience}</p>
-                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{creative.ad_copy}</p>
+                    <div className="p-4 space-y-2 flex-1 flex flex-col">
+                      <p className="text-xs font-medium text-blue-600 dark:text-blue-400">{creative.target_audience}</p>
+                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed flex-1">{creative.ad_copy}</p>
+                      {!isApproved && (
+                        <button
+                          onClick={() => handleSelect(i)}
+                          disabled={selecting !== null}
+                          className="mt-2 w-full py-2 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-blue-600 hover:text-white hover:border-blue-600 dark:hover:bg-blue-500 dark:hover:border-blue-500 disabled:opacity-50 transition-colors"
+                        >
+                          {selecting === i ? 'Seçiliyor...' : 'Bu reklamı seç'}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

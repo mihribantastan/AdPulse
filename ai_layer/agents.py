@@ -38,7 +38,11 @@ def creative_agent(state: CampaignState):
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
     prompt = ChatPromptTemplate.from_messages([
         ("system", "Sen ödüllü bir reklam yazarı ve sanat yönetmenisin. "
-         "Sana verilen strateji brief'ine dayanarak 3 farklı hedef kitle için reklam metinleri ve görsel promptları hazırla. "
+         "Sana verilen strateji brief'ine dayanarak 3 farklı hedef kitle için tam kapsamlı reklam metinleri "
+         "ve görsel promptları hazırla. Her ad_copy KISA BİR SLOGAN OLMASIN: dikkat çeken bir açılış cümlesi, "
+         "ürünün 2-3 somut faydasını anlatan bir gövde ve net bir harekete geçirici çağrı (CTA) içeren, "
+         "Meta/Google Ads reklam metni olarak kullanılabilecek 4-6 cümlelik, doyurucu bir metin yaz "
+         "(yaklaşık 400-600 karakter).\n"
          "Çıktını SADECE JSON formatında bir dizi olarak ver:\n"
          '[\n'
          '  {{"target_audience": "Kitle", "ad_copy": "Metin", "image_prompt": "English prompt"}}\n'
@@ -51,15 +55,14 @@ def creative_agent(state: CampaignState):
     match = re.search(r'\[.*\]', response.content, re.DOTALL)
     creatives_list = json.loads(match.group(0)) if match else []
 
-    # 2. AŞAMA: Görsel üretimi (ilk kreatif için)
-    if len(creatives_list) > 0:
-        first_creative = creatives_list[0]
+    # 2. AŞAMA: Her kreatif için ayrı görsel üretimi (kullanıcı üçünden birini seçebilsin diye)
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    for creative in creatives_list:
         try:
-            client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-            print("🎨 [Creative Agent] Görsel üretiliyor...")
+            print(f"🎨 [Creative Agent] Görsel üretiliyor: {creative.get('target_audience')}...")
             image_response = client.images.generate(
                 model="gpt-image-1",
-                prompt=first_creative["image_prompt"],
+                prompt=creative["image_prompt"],
                 size="1024x1024",
                 n=1,
             )
@@ -69,20 +72,20 @@ def creative_agent(state: CampaignState):
                 # Dosyaya yazmak yerine data URI olarak state'e koyuyoruz:
                 # worker kendi container'ında çalışıyor, dosya hiçbir yerden
                 # erişilebilir olmazdı. Frontend bunu doğrudan <img src> olarak kullanabilir.
-                first_creative["generated_image_url"] = f"data:image/png;base64,{image_data.b64_json}"
+                creative["generated_image_url"] = f"data:image/png;base64,{image_data.b64_json}"
             elif getattr(image_data, "url", None):
-                first_creative["generated_image_url"] = image_data.url
+                creative["generated_image_url"] = image_data.url
             else:
-                first_creative["generated_image_url"] = None
-
-            print("🎨 [Creative Agent] Görsel başarıyla üretildi.")
+                creative["generated_image_url"] = None
         except Exception as e:
-            print(f"⚠️ [Creative Agent] Görsel üretim hatası: {e}")
-            first_creative["generated_image_url"] = None
+            print(f"⚠️ [Creative Agent] Görsel üretim hatası ({creative.get('target_audience')}): {e}")
+            creative["generated_image_url"] = None
+
+    print("🎨 [Creative Agent] Tüm metinler ve görseller hazır.")
 
     return {
         "creatives": creatives_list,
-        "audit_log": current_logs + ["Creative Agent: Metinler ve görsel üretildi."],
+        "audit_log": current_logs + ["Creative Agent: Metinler ve görseller üretildi."],
     }
 
 
