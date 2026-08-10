@@ -29,6 +29,9 @@ class CampaignController extends Controller
         $validated = $request->validate([
             'target_url_or_product' => 'required|string|max:255',
             'target_audience' => 'nullable|string|max:255',
+            'key_features' => 'nullable|string|max:2000',
+            'brand_tone' => 'nullable|string|max:100',
+            'extra_notes' => 'nullable|string|max:2000',
             'platforms' => 'required|array|min:1',
             'daily_budget' => 'required|numeric|min:1',
         ]);
@@ -37,6 +40,9 @@ class CampaignController extends Controller
         $campaign = Campaign::create([
             'target_url_or_product' => $validated['target_url_or_product'],
             'target_audience' => $validated['target_audience'] ?? null,
+            'key_features' => $validated['key_features'] ?? null,
+            'brand_tone' => $validated['brand_tone'] ?? null,
+            'extra_notes' => $validated['extra_notes'] ?? null,
             'platforms' => $validated['platforms'],
             'daily_budget' => $validated['daily_budget'],
             'approval_status' => 'pending',
@@ -99,6 +105,9 @@ class CampaignController extends Controller
                 'campaign_id' => $campaign->id,
                 'target_product' => $campaign->target_url_or_product,
                 'target_audience' => $campaign->target_audience,
+                'key_features' => $campaign->key_features,
+                'brand_tone' => $campaign->brand_tone,
+                'extra_notes' => $campaign->extra_notes,
                 'platforms' => $campaign->platforms,
                 'daily_budget' => (float) $campaign->daily_budget,
             ]));

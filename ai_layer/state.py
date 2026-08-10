@@ -6,6 +6,10 @@ class CampaignState(TypedDict):
     campaign_id: int
     target_product: str
     daily_budget: float
+    target_audience: Optional[str]
+    key_features: Optional[str]
+    brand_tone: Optional[str]
+    extra_notes: Optional[str]
 
     # Research Agent çıktısı: sonraki ajanların temel aldığı strateji özeti
     strategy_brief: Optional[str]

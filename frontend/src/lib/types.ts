@@ -11,6 +11,16 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
+export type BrandTone = 'profesyonel' | 'samimi' | 'eglenceli' | 'lux' | 'enerjik';
+
+export const BRAND_TONE_LABELS: Record<BrandTone, string> = {
+  profesyonel: 'Profesyonel / Güven Verici',
+  samimi: 'Samimi / Sıcak',
+  eglenceli: 'Eğlenceli / Esprili',
+  lux: 'Lüks / Prestijli',
+  enerjik: 'Enerjik / Gençlere Hitap Eden',
+};
+
 export type Creative = {
   target_audience: string;
   ad_copy: string;
@@ -27,6 +37,9 @@ export type Campaign = {
   id: string;
   target_url_or_product: string;
   target_audience?: string | null;
+  key_features?: string | null;
+  brand_tone?: string | null;
+  extra_notes?: string | null;
   platforms: Platform[];
   daily_budget: number;
   approval_status: ApprovalStatus;

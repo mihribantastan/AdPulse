@@ -34,12 +34,18 @@ def listen_for_campaigns():
                 initial_state = {
                     "campaign_id": campaign_data.get("campaign_id"),
                     "target_product": campaign_data.get("target_product"),
+                    "target_audience": campaign_data.get("target_audience"),
+                    "key_features": campaign_data.get("key_features"),
+                    "brand_tone": campaign_data.get("brand_tone"),
+                    "extra_notes": campaign_data.get("extra_notes"),
                     "daily_budget": float(campaign_data.get("daily_budget", 0)),
                     "status": "pending"
                 }
-                
-                # Her kampanya için ayrı bir hafıza odası açıyoruz
-                thread_id = f"campaign_{initial_state['campaign_id']}"
+
+                # Her kampanya için ayrı bir hafıza odası açıyoruz. Zaman damgası ekliyoruz ki
+                # aynı campaign_id ileride tekrar kuyruğa düşerse (ör. tekrar deneme), LangGraph
+                # eski/duraklamış bir checkpoint'ten değil sıfırdan başlasın.
+                thread_id = f"campaign_{initial_state['campaign_id']}_{int(time.time())}"
                 config = {"configurable": {"thread_id": thread_id}}
                 
                 # Ajanları çalıştır!

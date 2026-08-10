@@ -12,6 +12,9 @@ class Campaign extends Model
     protected $fillable = [
         'target_url_or_product',
         'target_audience',
+        'key_features',
+        'brand_tone',
+        'extra_notes',
         'platforms',
         'daily_budget',
         'approval_status',
