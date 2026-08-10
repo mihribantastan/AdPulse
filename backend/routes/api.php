@@ -16,6 +16,7 @@ Route::post('/campaigns/complete', [CampaignController::class, 'complete']);
 
 // EĞER CONTROLLER HAZIRSA BUNU KULLAN:
 Route::get('/campaigns', [CampaignController::class, 'index']);
+Route::get('/campaigns/{campaign}', [CampaignController::class, 'show']);
 
 // --------------------------------------------------------
 // 2. REACT FRONTEND'İ TEST ETMEK İÇİN SAHTE (MOCK) VERİLER

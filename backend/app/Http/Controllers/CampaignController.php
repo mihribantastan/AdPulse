@@ -17,6 +17,12 @@ class CampaignController extends Controller
         return response()->json($campaigns);
     }
 
+    // Tek bir kampanyanın detayını (ajan sonuçları dahil) getirir
+    public function show(Campaign $campaign)
+    {
+        return response()->json($campaign);
+    }
+
     // Arayüzden gelen yeni kampanya talebini alır ve kaydeder
     public function store(Request $request)
     {

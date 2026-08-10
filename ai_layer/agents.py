@@ -1,8 +1,6 @@
-import base64
 import json
 import os
 import re
-import time
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
@@ -68,10 +66,10 @@ def creative_agent(state: CampaignState):
             image_data = image_response.data[0]
 
             if getattr(image_data, "b64_json", None):
-                file_name = f"reklam_gorseli_{int(time.time())}.png"
-                with open(file_name, "wb") as f:
-                    f.write(base64.b64decode(image_data.b64_json))
-                first_creative["generated_image_url"] = file_name
+                # Dosyaya yazmak yerine data URI olarak state'e koyuyoruz:
+                # worker kendi container'ında çalışıyor, dosya hiçbir yerden
+                # erişilebilir olmazdı. Frontend bunu doğrudan <img src> olarak kullanabilir.
+                first_creative["generated_image_url"] = f"data:image/png;base64,{image_data.b64_json}"
             elif getattr(image_data, "url", None):
                 first_creative["generated_image_url"] = image_data.url
             else:

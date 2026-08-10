@@ -11,12 +11,12 @@ const PLATFORM_STYLES: Record<Platform, { bg: string; text: string; code: string
 };
 
 export function PlatformBadge({ platform, size = 'md' }: { platform: Platform; size?: 'sm' | 'md' }) {
-  const style = PLATFORM_STYLES[platform];
+  const style = PLATFORM_STYLES[platform] ?? { bg: 'bg-slate-400', text: 'text-white', code: '?' };
   const dimension = size === 'sm' ? 'w-5 h-5 text-[9px]' : 'w-8 h-8 text-xs';
 
   return (
     <span
-      title={PLATFORM_LABELS[platform]}
+      title={PLATFORM_LABELS[platform] ?? platform}
       className={`inline-flex items-center justify-center rounded-full font-semibold shrink-0 ${dimension} ${style.bg} ${style.text}`}
     >
       {style.code}
