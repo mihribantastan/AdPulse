@@ -1,5 +1,6 @@
 services:
   app:
+    restart: unless-stopped
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -22,6 +23,7 @@ services:
              (cd public && php -S 0.0.0.0:8000 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php)"
 
   db:
+    restart: unless-stopped
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: adpulse
@@ -38,6 +40,7 @@ services:
       retries: 10
 
   redis:
+    restart: unless-stopped
     image: redis:7-alpine
     ports:
       - "6379:6379"
@@ -48,6 +51,24 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  worker:
+    restart: unless-stopped
+    build:
+      context: ./ai_layer
+      dockerfile: Dockerfile
+    volumes:
+      - ./ai_layer:/app
+    env_file:
+      - ./ai_layer/.env
+    environment:
+      REDIS_HOST: redis
+      LARAVEL_URL: http://app:8000/api/campaigns/complete
+    depends_on:
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_started
 
 volumes:
   pgdata:

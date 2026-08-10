@@ -1,3 +1,4 @@
+import os
 import requests
 try:
     import redis
@@ -8,8 +9,12 @@ import json
 import time
 from graph import app  # LangGraph beynimizi buraya dahil ediyoruz
 
+REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
+LARAVEL_URL = os.environ.get("LARAVEL_URL", "http://127.0.0.1:8000/api/campaigns/complete")
+
 # decode_responses=True parametresi byte verisini direkt string'e çevirir
-r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
 
 def listen_for_campaigns():
     print("👂 Ajan köprüsü dinlemede... (Redis:adpulse_queue)")
@@ -25,10 +30,10 @@ def listen_for_campaigns():
                 print(f"🚀 {campaign_data.get('target_product')} için süreç başlatılıyor...")
                 
                 # LangGraph State'i için veriyi hazırlıyoruz
+                # (strategy_brief burada YOK: Research Agent'ın kendisi üretiyor)
                 initial_state = {
                     "campaign_id": campaign_data.get("campaign_id"),
                     "target_product": campaign_data.get("target_product"),
-                    "strategy_brief": campaign_data.get("strategy_brief"),
                     "daily_budget": float(campaign_data.get("daily_budget", 0)),
                     "status": "pending"
                 }
@@ -41,24 +46,23 @@ def listen_for_campaigns():
                 state_after_creative = app.invoke(initial_state, config)
                 
                 print(f"⏸️ Kampanya #{initial_state['campaign_id']} Media planlaması öncesi duraklatıldı!")
-                print("İnsan onayı bekleniyor...\n")
-                
+                print("İnsan onayı bekleniyor... (Media Agent + gerçek Meta/Google Ads çağrıları onaydan sonra çalışacak)\n")
+
                 # ==========================================
-                # YENİ EKLENEN KISIM: LARAVEL'E DÖNÜŞ KÖPRÜSÜ
+                # LARAVEL'E DÖNÜŞ KÖPRÜSÜ: research + creative sonuçları
                 # ==========================================
-                print("📦 Ajanlar işi bitirdi, AdPulse sonuçları Laravel'e gönderiliyor...")
-                
-                laravel_url = "http://localhost:8000/api/campaigns/complete"
-                
-                # Yapay zekanın state içindeki sonuçlarını paketliyoruz
+                print("📦 Research ve Creative ajanları tamamlandı, sonuçlar Laravel'e gönderiliyor...")
+
                 payload = {
                     "campaign_id": state_after_creative.get("campaign_id"),
-                    "target_product": state_after_creative.get("target_product"),
-                    "generated_content": state_after_creative.get("ad_copy", "Metin başarıyla üretildi!") 
+                    "generated_content": {
+                        "strategy_brief": state_after_creative.get("strategy_brief"),
+                        "creatives": state_after_creative.get("creatives", []),
+                    },
                 }
                 
                 try:
-                    response = requests.post(laravel_url, json=payload)
+                    response = requests.post(LARAVEL_URL, json=payload)
                     print(f"✅ Laravel'den gelen cevap: {response.json()}")
                 except Exception as e:
                     print(f"❌ Laravel'e gönderirken hata oluştu: {e}")

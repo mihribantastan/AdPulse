@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver # HAFIZA MODÜLÜ EKLENDİ
 from state import CampaignState
@@ -27,7 +30,6 @@ if __name__ == "__main__":
     initial_state = {
         "campaign_id": 1,
         "target_product": "Oyuncu Mouse",
-        "strategy_brief": "Esporculara yönelik düşük gecikme",
         "daily_budget": 15000.50,
         "status": "pending"
     }
