@@ -1,6 +1,10 @@
 # Creative Agent'ın ürettiği görseller
 ai_layer/reklam_gorseli_*.png
 
+# Bu makinenin Windows sertifika deposundan dışa aktarılan kök sertifikalar
+# (export_windows_certs.py ile üretilir, taşınabilir değil, makineye özel)
+ai_layer/windows_roots.pem
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

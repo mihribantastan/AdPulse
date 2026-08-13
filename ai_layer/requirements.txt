@@ -6,3 +6,5 @@ openai==2.44.0
 python-dotenv==1.2.2
 redis==8.0.1
 requests==2.34.2
+google-ads==31.2.0
+google-auth-oauthlib==1.4.0
