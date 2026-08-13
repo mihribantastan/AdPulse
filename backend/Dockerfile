@@ -5,7 +5,12 @@ RUN apt-get update && apt-get install -y \
         libzip-dev \
         unzip \
         git \
+        $PHPIZE_DEPS \
+        libssl-dev \
+        libbrotli-dev \
     && docker-php-ext-install pdo pdo_pgsql pgsql zip \
+    && pecl install swoole \
+    && docker-php-ext-enable swoole \
     && rm -rf /var/lib/apt/lists/*
 
 # Kampanya görsel/video yüklemeleri için varsayılan PHP limitleri (2M) yetersiz

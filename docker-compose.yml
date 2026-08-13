@@ -20,7 +20,7 @@ services:
     command: >
       sh -c "composer install --no-interaction --no-progress &&
              php artisan migrate --force &&
-             (cd public && php -S 0.0.0.0:8000 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php)"
+             php artisan octane:start --server=swoole --host=0.0.0.0 --port=8000"
 
   db:
     restart: unless-stopped
@@ -64,6 +64,7 @@ services:
     environment:
       REDIS_HOST: redis
       LARAVEL_URL: http://app:8000/api/campaigns/complete
+      LARAVEL_PUBLISH_URL: http://app:8000/api/campaigns/publish-complete
     depends_on:
       redis:
         condition: service_healthy
