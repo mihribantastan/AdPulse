@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
         $PHPIZE_DEPS \
         libssl-dev \
         libbrotli-dev \
-    && docker-php-ext-install pdo pdo_pgsql pgsql zip \
+    && docker-php-ext-install pdo pdo_pgsql pgsql zip pcntl \
     && pecl install swoole \
     && docker-php-ext-enable swoole \
     && rm -rf /var/lib/apt/lists/*
