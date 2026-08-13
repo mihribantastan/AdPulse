@@ -15,6 +15,20 @@ class CampaignController extends Controller
     {
         // En son eklenen en üstte olacak şekilde getiriyoruz
         $campaigns = Campaign::with('assets')->orderBy('created_at', 'desc')->get();
+
+        // Liste görünümü görselleri göstermiyor (sadece detay sayfası gösteriyor);
+        // base64 görseller kampanya başına birkaç MB olabildiğinden, listede taşımak
+        // sırf gecikme yaratıyor. Metni (strategy_brief, ad_copy) olduğu gibi bırakıyoruz.
+        $campaigns->each(function (Campaign $campaign) {
+            $results = $campaign->ai_analysis_results;
+            if (!empty($results['creatives'])) {
+                $results['creatives'] = collect($results['creatives'])
+                    ->map(fn ($c) => collect($c)->except('generated_image_url')->all())
+                    ->all();
+                $campaign->ai_analysis_results = $results;
+            }
+        });
+
         return response()->json($campaigns);
     }
 
