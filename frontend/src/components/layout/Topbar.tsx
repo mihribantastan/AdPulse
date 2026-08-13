@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
-import { ChevronDown, LogOut, Settings, WifiOff, User as UserIcon, Moon, Sun } from 'lucide-react';
+import { ChevronDown, LogOut, Settings, User as UserIcon, Moon, Sun } from 'lucide-react';
 
 export function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
-  const { user, demo, logout } = useAuth();
+  const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -39,13 +39,6 @@ export function Topbar({ title, subtitle }: { title: string; subtitle?: string }
 
       {/* Sağ Kısım: Kontroller */}
       <div className="flex items-center gap-3">
-
-        {demo && (
-          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-medium rounded-full border border-amber-200 dark:border-amber-500/20">
-            <WifiOff size={13} />
-            Demo Veri
-          </span>
-        )}
 
         <button
           onClick={toggleTheme}

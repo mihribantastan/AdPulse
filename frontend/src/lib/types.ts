@@ -72,6 +72,8 @@ export type CampaignAsset = {
   original_name?: string | null;
 };
 
+export type GoogleAdsStatus = 'publishing' | 'published' | 'failed';
+
 export type Campaign = {
   id: string;
   created_at: string;
@@ -87,6 +89,9 @@ export type Campaign = {
   approval_status: ApprovalStatus;
   ai_analysis_results?: AiAnalysisResults | null;
   selected_creative_index?: number | null;
+  google_ads_status?: GoogleAdsStatus | null;
+  google_ads_campaign_id?: string | null;
+  google_ads_error?: string | null;
   assets?: CampaignAsset[];
 };
 

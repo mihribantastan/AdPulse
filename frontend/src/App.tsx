@@ -1,8 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
-// Login default export olduğu için süslü parantez YOK ve büyük harfle
-import Login from './pages/Login'; 
+// Login/Signup default export olduğu için süslü parantez YOK ve büyük harfle
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import AuthCallback from './pages/AuthCallback';
 
 // Diğerleri named export olduğu için süslü parantez VAR
 import { Dashboard } from './pages/Dashboard';
@@ -20,14 +23,16 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<Login />} />
-          
-          <Route path="/app/statistics" element={<Dashboard />} />
-          <Route path="/app/campaigns" element={<Campaigns />} />
-          <Route path="/app/campaigns/new" element={<NewCampaign />} />
-          <Route path="/app/campaigns/:id" element={<CampaignDetail />} />
-          <Route path="/app/reports" element={<Reports />} />
-          <Route path="/app/chatbot" element={<Chatbot />} />
-          <Route path="/app/settings" element={<Settings />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+
+          <Route path="/app/statistics" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/app/campaigns" element={<ProtectedRoute><Campaigns /></ProtectedRoute>} />
+          <Route path="/app/campaigns/new" element={<ProtectedRoute><NewCampaign /></ProtectedRoute>} />
+          <Route path="/app/campaigns/:id" element={<ProtectedRoute><CampaignDetail /></ProtectedRoute>} />
+          <Route path="/app/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+          <Route path="/app/chatbot" element={<ProtectedRoute><Chatbot /></ProtectedRoute>} />
+          <Route path="/app/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

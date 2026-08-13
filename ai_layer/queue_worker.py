@@ -8,22 +8,58 @@ except ImportError:
 import json
 import time
 from graph import app  # LangGraph beynimizi buraya dahil ediyoruz
+from publisher import publish_campaign
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
 LARAVEL_URL = os.environ.get("LARAVEL_URL", "http://127.0.0.1:8000/api/campaigns/complete")
+LARAVEL_PUBLISH_URL = os.environ.get(
+    "LARAVEL_PUBLISH_URL", "http://127.0.0.1:8000/api/campaigns/publish-complete"
+)
 
 # decode_responses=True parametresi byte verisini direkt string'e çevirir
 r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
 
+def handle_publish_job(message: str) -> None:
+    payload = json.loads(message)
+    campaign_id = payload.get("campaign_id")
+    print(f"\n" + "="*50)
+    print(f"📤 Yayın emri alındı: kampanya #{campaign_id}")
+    print("🎯 Google Ads API'ye gerçek kampanya oluşturuluyor (PAUSED)...")
+
+    result = publish_campaign(payload)
+
+    if result["success"]:
+        print(f"✅ Google Ads kampanyası oluşturuldu: {result['google_ads_campaign_id']}")
+    else:
+        print(f"❌ Google Ads yayını başarısız: {result['error']}")
+
+    callback_payload = {
+        "campaign_id": campaign_id,
+        "status": "published" if result["success"] else "failed",
+        "google_ads_campaign_id": result["google_ads_campaign_id"],
+        "error": result["error"],
+    }
+    try:
+        response = requests.post(LARAVEL_PUBLISH_URL, json=callback_payload)
+        print(f"✅ Laravel'e yayın sonucu gönderildi: {response.json()}")
+    except Exception as e:
+        print(f"❌ Laravel'e yayın sonucu gönderirken hata oluştu: {e}")
+
+
 def listen_for_campaigns():
-    print("👂 Ajan köprüsü dinlemede... (Redis:adpulse_queue)")
+    print("👂 Ajan köprüsü dinlemede... (Redis:adpulse_queue, adpulse_publish_queue)")
     while True:
         try:
-            # Zaman aşımını 5 saniye tutuyoruz
-            data = r.blpop("adpulse_queue", timeout=5)
+            # Zaman aşımını 5 saniye tutuyoruz; iki kuyruğu birden dinliyoruz
+            data = r.blpop(["adpulse_queue", "adpulse_publish_queue"], timeout=5)
             if data:
-                _, message = data
+                queue_name, message = data
+
+                if queue_name == "adpulse_publish_queue":
+                    handle_publish_job(message)
+                    continue
+
                 campaign_data = json.loads(message)
                 print(f"\n" + "="*50)
                 print(f"📩 Yeni kampanya emri alındı: {campaign_data.get('campaign_id')}")

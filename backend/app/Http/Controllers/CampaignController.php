@@ -10,11 +10,14 @@ use App\Domains\Campaign\Models\CampaignAsset;
 
 class CampaignController extends Controller
 {
-    // Arayüzdeki (Dashboard) kampanyaları listeler
-    public function index()
+    // Arayüzdeki (Dashboard) kampanyaları listeler - sadece giriş yapan kullanıcınınkiler
+    public function index(Request $request)
     {
         // En son eklenen en üstte olacak şekilde getiriyoruz
-        $campaigns = Campaign::with('assets')->orderBy('created_at', 'desc')->get();
+        $campaigns = Campaign::where('user_id', $request->user()->id)
+            ->with('assets')
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         // Liste görünümü görselleri göstermiyor (sadece detay sayfası gösteriyor);
         // base64 görseller kampanya başına birkaç MB olabildiğinden, listede taşımak
@@ -33,8 +36,9 @@ class CampaignController extends Controller
     }
 
     // Tek bir kampanyanın detayını (ajan sonuçları dahil) getirir
-    public function show(Campaign $campaign)
+    public function show(Request $request, Campaign $campaign)
     {
+        $this->authorizeOwner($request, $campaign);
         return response()->json($campaign->load('assets'));
     }
 
@@ -55,6 +59,7 @@ class CampaignController extends Controller
 
         // 1. Kampanyayı veritabanına "pending" (bekliyor) olarak kaydet
         $campaign = Campaign::create([
+            'user_id' => $request->user()->id,
             'target_url_or_product' => $validated['target_url_or_product'],
             'target_audience' => $validated['target_audience'] ?? null,
             'key_features' => $validated['key_features'] ?? null,
@@ -80,6 +85,8 @@ class CampaignController extends Controller
     // Kullanıcının kendi görsel/videolarını kampanyaya ekler (AI'nın yanında referans/gerçek materyal olarak)
     public function uploadAssets(Request $request, Campaign $campaign)
     {
+        $this->authorizeOwner($request, $campaign);
+
         $validated = $request->validate([
             'files' => 'required|array|min:1|max:10',
             'files.*' => 'file|mimes:jpg,jpeg,png,webp,mp4,mov,webm|max:51200', // 50MB
@@ -106,9 +113,12 @@ class CampaignController extends Controller
         ], 201);
     }
 
-    // Kullanıcı, ajanın ürettiği 3 reklamdan birini seçip onaylar
+    // Kullanıcı, ajanın ürettiği 3 reklamdan birini seçip onaylar; bu seçimi
+    // gerçek Google Ads API çağrısıyla test hesabında yayınlamak üzere kuyruğa atar
     public function approve(Request $request, Campaign $campaign)
     {
+        $this->authorizeOwner($request, $campaign);
+
         $creatives = $campaign->ai_analysis_results['creatives'] ?? [];
 
         $validated = $request->validate([
@@ -118,10 +128,14 @@ class CampaignController extends Controller
         $campaign->update([
             'selected_creative_index' => $validated['selected_creative_index'],
             'approval_status' => 'approved',
+            'google_ads_status' => 'publishing',
+            'google_ads_error' => null,
         ]);
 
+        $this->dispatchToPublishQueue($campaign, $creatives[$validated['selected_creative_index']]);
+
         return response()->json([
-            'message' => 'Reklam seçildi ve kampanya onaylandı.',
+            'message' => 'Reklam seçildi, kampanya onaylandı ve Google Ads\'e gönderiliyor.',
             'data' => $campaign,
         ]);
     }
@@ -145,6 +159,37 @@ class CampaignController extends Controller
         ]);
     }
 
+    // Python (ai_layer/publisher.py) gerçek Google Ads API çağrısının sonucunu bildirir
+    public function publishComplete(Request $request)
+    {
+        $validated = $request->validate([
+            'campaign_id' => 'required|integer|exists:campaigns,id',
+            'status' => 'required|string|in:published,failed',
+            'google_ads_campaign_id' => 'nullable|string',
+            'error' => 'nullable|string',
+        ]);
+
+        $campaign = Campaign::findOrFail($validated['campaign_id']);
+        $campaign->update([
+            'google_ads_status' => $validated['status'],
+            'google_ads_campaign_id' => $validated['google_ads_campaign_id'] ?? null,
+            'google_ads_error' => $validated['error'] ?? null,
+        ]);
+
+        return response()->json([
+            'message' => 'Kampanya Google Ads yayın sonucuyla güncellendi.',
+            'data' => $campaign,
+        ]);
+    }
+
+    // Kampanya başka bir kullanıcıya aitse 403 döner
+    private function authorizeOwner(Request $request, Campaign $campaign): void
+    {
+        if ($campaign->user_id !== $request->user()->id) {
+            abort(403, 'Bu kampanyaya erişim yetkiniz yok.');
+        }
+    }
+
     // ai_layer/queue_worker.py'nin BLPOP ile dinlediği "adpulse_queue" listesine kampanyayı iter
     private function dispatchToAgentQueue(Campaign $campaign): void
     {
@@ -165,6 +210,29 @@ class CampaignController extends Controller
             // Kuyruk şu an ayakta değilse kampanya kaydı yine de oluşmuş olsun;
             // ajan tetikleme başarısızlığı kullanıcıya 500 olarak yansımasın.
             Log::error('Ajan kuyruğuna gönderim başarısız oldu: ' . $e->getMessage(), [
+                'campaign_id' => $campaign->id,
+            ]);
+        }
+    }
+
+    // ai_layer/queue_worker.py'nin dinlediği "adpulse_publish_queue" listesine seçilen
+    // reklamı iter; worker bunu gerçek Google Ads API çağrısıyla test hesabında yayınlar
+    private function dispatchToPublishQueue(Campaign $campaign, array $selectedCreative): void
+    {
+        try {
+            Redis::rpush('adpulse_publish_queue', json_encode([
+                'campaign_id' => $campaign->id,
+                'target_url_or_product' => $campaign->target_url_or_product,
+                'daily_budget' => (float) $campaign->daily_budget,
+                'strategy_brief' => $campaign->ai_analysis_results['strategy_brief'] ?? null,
+                'selected_creative' => $selectedCreative,
+            ]));
+        } catch (\Throwable $e) {
+            $campaign->update([
+                'google_ads_status' => 'failed',
+                'google_ads_error' => 'Yayın kuyruğuna gönderilemedi: ' . $e->getMessage(),
+            ]);
+            Log::error('Yayın kuyruğuna gönderim başarısız oldu: ' . $e->getMessage(), [
                 'campaign_id' => $campaign->id,
             ]);
         }

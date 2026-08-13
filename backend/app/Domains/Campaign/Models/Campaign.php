@@ -2,6 +2,7 @@
 
 namespace App\Domains\Campaign\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -10,6 +11,7 @@ class Campaign extends Model
     use HasFactory;
     // Mass-assignment hatasını çözen koruma alanı (campaigns tablosundaki gerçek kolonlarla eşleşir)
     protected $fillable = [
+        'user_id',
         'target_url_or_product',
         'target_audience',
         'key_features',
@@ -22,6 +24,9 @@ class Campaign extends Model
         'approval_status',
         'ai_analysis_results',
         'selected_creative_index',
+        'google_ads_status',
+        'google_ads_campaign_id',
+        'google_ads_error',
     ];
 
     // JSON verilerini otomatik diziye çevirmesi için
@@ -31,6 +36,11 @@ class Campaign extends Model
         'daily_budget' => 'decimal:2',
         'selected_creative_index' => 'integer',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
     public function assets()
     {

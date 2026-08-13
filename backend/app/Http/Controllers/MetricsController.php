@@ -5,21 +5,25 @@ namespace App\Http\Controllers;
 use App\Domains\Campaign\Models\Campaign;
 use App\Domains\Campaign\Models\CampaignMetric;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class MetricsController extends Controller
 {
     // Genel bakış: gerçek reklam performansı (Meta/Google senkronize etmeye başlayınca dolacak)
-    // + bugün elimizde olan gerçek kampanya boru hattı istatistikleri
-    public function summary()
+    // + bugün elimizde olan gerçek kampanya boru hattı istatistikleri - sadece giriş yapan kullanıcının
+    public function summary(Request $request)
     {
-        $totals = CampaignMetric::selectRaw('
-            COALESCE(SUM(clicks), 0) as clicks,
-            COALESCE(SUM(impressions), 0) as impressions,
-            COALESCE(SUM(spend), 0) as spend,
-            COALESCE(SUM(revenue), 0) as revenue
-        ')->first();
+        $userId = $request->user()->id;
 
-        $hasPerformanceData = CampaignMetric::exists();
+        $totals = CampaignMetric::whereHas('campaign', fn ($q) => $q->where('user_id', $userId))
+            ->selectRaw('
+                COALESCE(SUM(clicks), 0) as clicks,
+                COALESCE(SUM(impressions), 0) as impressions,
+                COALESCE(SUM(spend), 0) as spend,
+                COALESCE(SUM(revenue), 0) as revenue
+            ')->first();
+
+        $hasPerformanceData = CampaignMetric::whereHas('campaign', fn ($q) => $q->where('user_id', $userId))->exists();
         $ctr = $totals->impressions > 0 ? round(($totals->clicks / $totals->impressions) * 100, 2) : 0;
 
         return response()->json([
@@ -28,16 +32,18 @@ class MetricsController extends Controller
             'profit' => (float) ($totals->revenue - $totals->spend),
             'ctr' => $ctr,
             'has_performance_data' => $hasPerformanceData,
-            'pipeline' => $this->pipelineStats(),
+            'pipeline' => $this->pipelineStats($userId),
         ]);
     }
 
     // Son 14 günün tıklama/harcama trendi (eksik günler 0 ile dolduruluyor, grafik sürekli olsun diye)
-    public function timeseries()
+    public function timeseries(Request $request)
     {
+        $userId = $request->user()->id;
         $since = Carbon::today()->subDays(13);
 
-        $rows = CampaignMetric::selectRaw('date, SUM(clicks) as clicks, SUM(spend) as spend')
+        $rows = CampaignMetric::whereHas('campaign', fn ($q) => $q->where('user_id', $userId))
+            ->selectRaw('date, SUM(clicks) as clicks, SUM(spend) as spend')
             ->where('date', '>=', $since->toDateString())
             ->groupBy('date')
             ->orderBy('date')
@@ -59,9 +65,12 @@ class MetricsController extends Controller
     }
 
     // Platforma göre gerçek reklam performansı (harcama/tıklama) - Meta/Google entegrasyonu canlıya geçince dolar
-    public function platform()
+    public function platform(Request $request)
     {
-        $rows = CampaignMetric::selectRaw('platform, SUM(clicks) as clicks, SUM(spend) as spend')
+        $userId = $request->user()->id;
+
+        $rows = CampaignMetric::whereHas('campaign', fn ($q) => $q->where('user_id', $userId))
+            ->selectRaw('platform, SUM(clicks) as clicks, SUM(spend) as spend')
             ->groupBy('platform')
             ->orderByDesc('spend')
             ->get()
@@ -75,10 +84,10 @@ class MetricsController extends Controller
     }
 
     // Bugün gerçekten sahip olduğumuz veri: kaç kampanya var, hangi durumda, hangi platformlara dağılmış
-    private function pipelineStats(): array
+    private function pipelineStats(int $userId): array
     {
         $platformCounts = [];
-        foreach (Campaign::pluck('platforms') as $platforms) {
+        foreach (Campaign::where('user_id', $userId)->pluck('platforms') as $platforms) {
             foreach ((array) $platforms as $platform) {
                 $platformCounts[$platform] = ($platformCounts[$platform] ?? 0) + 1;
             }
@@ -86,11 +95,11 @@ class MetricsController extends Controller
         arsort($platformCounts);
 
         return [
-            'total_campaigns' => Campaign::count(),
-            'pending' => Campaign::where('approval_status', 'pending')->count(),
-            'approved' => Campaign::where('approval_status', 'approved')->count(),
-            'rejected' => Campaign::where('approval_status', 'rejected')->count(),
-            'total_daily_budget' => (float) Campaign::sum('daily_budget'),
+            'total_campaigns' => Campaign::where('user_id', $userId)->count(),
+            'pending' => Campaign::where('user_id', $userId)->where('approval_status', 'pending')->count(),
+            'approved' => Campaign::where('user_id', $userId)->where('approval_status', 'approved')->count(),
+            'rejected' => Campaign::where('user_id', $userId)->where('approval_status', 'rejected')->count(),
+            'total_daily_budget' => (float) Campaign::where('user_id', $userId)->sum('daily_budget'),
             'platform_distribution' => collect($platformCounts)
                 ->map(fn ($count, $platform) => ['platform' => $platform, 'count' => $count])
                 ->values(),

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Activity, Wallet, Users, Check, ImagePlus } from 'lucide-react';
+import { Activity, Wallet, Users, Check, ImagePlus, ExternalLink, AlertTriangle, Loader2 } from 'lucide-react';
 import { AppLayout } from '../components/layout/AppLayout';
 import { PlatformBadge } from '../components/PlatformBadge';
 import { campaignsApi } from '../lib/api';
@@ -8,13 +8,14 @@ import type { Campaign } from '../lib/types';
 
 const STATUS_LABEL: Record<Campaign['approval_status'], string> = {
   pending: 'Onay Bekliyor',
-  approved: 'Yayında',
+  approved: 'Onaylandı',
   rejected: 'Reddedildi',
 };
 
 export function CampaignDetail() {
   const { id } = useParams<{ id: string }>();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [selecting, setSelecting] = useState<number | null>(null);
 
   const handleSelect = async (index: number) => {
@@ -35,11 +36,18 @@ export function CampaignDetail() {
     let timer: ReturnType<typeof setTimeout>;
 
     const load = async () => {
-      const data = await campaignsApi.get(id);
-      if (cancelled) return;
-      setCampaign(data);
-      // Ajanlar henüz sonuç üretmediyse birkaç saniyede bir tekrar sor
-      if (!data.ai_analysis_results) {
+      try {
+        const data = await campaignsApi.get(id);
+        if (cancelled) return;
+        setCampaign(data);
+        setLoadError(false);
+        // Ajanlar henüz sonuç üretmediyse ya da Google Ads'e yayın sürüyorsa birkaç saniyede bir tekrar sor
+        if (!data.ai_analysis_results || data.google_ads_status === 'publishing') {
+          timer = setTimeout(load, 4000);
+        }
+      } catch {
+        if (cancelled) return;
+        setLoadError(true);
         timer = setTimeout(load, 4000);
       }
     };
@@ -53,8 +61,14 @@ export function CampaignDetail() {
 
   if (!campaign) {
     return (
-      <AppLayout title="Kampanya" subtitle="Yükleniyor...">
-        <div className="text-slate-400 text-sm">Yükleniyor...</div>
+      <AppLayout title="Kampanya" subtitle={loadError ? 'Bağlantı sorunu' : 'Yükleniyor...'}>
+        {loadError ? (
+          <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 text-sm">
+            <AlertTriangle size={16} /> Kampanya yüklenemedi, tekrar deneniyor...
+          </div>
+        ) : (
+          <div className="text-slate-400 text-sm">Yükleniyor...</div>
+        )}
       </AppLayout>
     );
   }
@@ -172,6 +186,58 @@ export function CampaignDetail() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {campaign.google_ads_status === 'publishing' && (
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 flex items-center gap-3">
+            <Loader2 size={18} className="text-blue-500 animate-spin shrink-0" />
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Google Ads test hesabınızda gerçek bir kampanya oluşturuluyor... (genelde 15-30 saniye sürer)
+            </p>
+          </div>
+        )}
+
+        {campaign.google_ads_status === 'published' && (
+          <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl p-6 flex items-start gap-3">
+            <Check size={18} className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" strokeWidth={2.5} />
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                Google Ads'de gerçek bir kampanya olarak oluşturuldu (duraklatılmış / PAUSED).
+              </p>
+              <p className="text-xs text-emerald-700/80 dark:text-emerald-400/70">
+                Kampanya ID: {campaign.google_ads_campaign_id} · Gerçekten yayına almak için Google Ads panelinden kampanyayı etkinleştirmen gerekiyor.
+              </p>
+              <a
+                href={`https://ads.google.com/aw/campaigns?campaignId=${campaign.google_ads_campaign_id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+              >
+                Google Ads'de görüntüle <ExternalLink size={12} />
+              </a>
+            </div>
+          </div>
+        )}
+
+        {campaign.google_ads_status === 'failed' && (
+          <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-2xl p-6 flex items-start gap-3">
+            <AlertTriangle size={18} className="text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-rose-700 dark:text-rose-400">Google Ads'e yayınlanamadı.</p>
+              {campaign.google_ads_error && (
+                <p className="text-xs text-rose-700/80 dark:text-rose-400/70">{campaign.google_ads_error}</p>
+              )}
+              {campaign.selected_creative_index != null && (
+                <button
+                  onClick={() => handleSelect(campaign.selected_creative_index!)}
+                  disabled={selecting !== null}
+                  className="text-xs font-medium text-rose-700 dark:text-rose-400 hover:underline disabled:opacity-50"
+                >
+                  {selecting !== null ? 'Deneniyor...' : 'Tekrar dene'}
+                </button>
+              )}
             </div>
           </div>
         )}
