@@ -41,4 +41,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/metrics/summary', [MetricsController::class, 'summary']);
     Route::get('/metrics/timeseries', [MetricsController::class, 'timeseries']);
     Route::get('/metrics/platform', [MetricsController::class, 'platform']);
+    Route::get('/campaigns/{campaign}/metrics/summary', [MetricsController::class, 'campaignSummary']);
+    Route::get('/campaigns/{campaign}/metrics/timeseries', [MetricsController::class, 'campaignTimeseries']);
 });

@@ -64,6 +64,66 @@ class MetricsController extends Controller
         return response()->json($series);
     }
 
+    // Tek bir kampanyanın toplam performansı - rapor sayfası için
+    public function campaignSummary(Request $request, Campaign $campaign)
+    {
+        abort_unless($campaign->user_id === $request->user()->id, 403);
+
+        $totals = CampaignMetric::where('campaign_id', $campaign->id)
+            ->selectRaw('
+                COALESCE(SUM(clicks), 0) as clicks,
+                COALESCE(SUM(impressions), 0) as impressions,
+                COALESCE(SUM(spend), 0) as spend,
+                COALESCE(SUM(revenue), 0) as revenue,
+                COALESCE(SUM(conversions), 0) as conversions
+            ')->first();
+
+        $hasPerformanceData = CampaignMetric::where('campaign_id', $campaign->id)->exists();
+        $ctr = $totals->impressions > 0 ? round(($totals->clicks / $totals->impressions) * 100, 2) : 0;
+
+        return response()->json([
+            'clicks' => (int) $totals->clicks,
+            'impressions' => (int) $totals->impressions,
+            'spend' => (float) $totals->spend,
+            'revenue' => (float) $totals->revenue,
+            'profit' => (float) ($totals->revenue - $totals->spend),
+            'conversions' => (int) $totals->conversions,
+            'ctr' => $ctr,
+            'has_performance_data' => $hasPerformanceData,
+        ]);
+    }
+
+    // Tek bir kampanyanın son 14 günlük trendi - rapor sayfası için
+    public function campaignTimeseries(Request $request, Campaign $campaign)
+    {
+        abort_unless($campaign->user_id === $request->user()->id, 403);
+
+        $since = Carbon::today()->subDays(13);
+
+        $rows = CampaignMetric::where('campaign_id', $campaign->id)
+            ->selectRaw('date, SUM(clicks) as clicks, SUM(spend) as spend, SUM(impressions) as impressions, SUM(revenue) as revenue')
+            ->where('date', '>=', $since->toDateString())
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->keyBy(fn ($row) => $row->date->toDateString());
+
+        $series = [];
+        for ($i = 0; $i < 14; $i++) {
+            $date = $since->copy()->addDays($i)->toDateString();
+            $row = $rows->get($date);
+            $series[] = [
+                'date' => $date,
+                'clicks' => $row ? (int) $row->clicks : 0,
+                'spend' => $row ? (float) $row->spend : 0,
+                'impressions' => $row ? (int) $row->impressions : 0,
+                'revenue' => $row ? (float) $row->revenue : 0,
+            ];
+        }
+
+        return response()->json($series);
+    }
+
     // Platforma göre gerçek reklam performansı (harcama/tıklama) - Meta/Google entegrasyonu canlıya geçince dolar
     public function platform(Request $request)
     {

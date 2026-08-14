@@ -11,17 +11,17 @@ type StatCardProps = {
 
 export function StatCard({ label, value, delta, hint, icon: Icon, positive = true }: StatCardProps) {
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 transition-colors hover:border-slate-300 dark:hover:border-slate-700">
+    <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-5 transition-colors hover:border-white/20 hover:bg-white/[0.05]">
       <div className="flex items-center justify-between mb-5">
-        <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300">
+        <div className="w-9 h-9 rounded-lg bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-accent-400">
           <Icon size={18} strokeWidth={2} />
         </div>
         {delta && (
           <span
             className={`text-xs font-medium px-2 py-1 rounded-md ${
               positive
-                ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                : 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400'
+                ? 'bg-emerald-500/10 text-emerald-400'
+                : 'bg-rose-500/10 text-rose-400'
             }`}
           >
             {delta}
@@ -29,9 +29,9 @@ export function StatCard({ label, value, delta, hint, icon: Icon, positive = tru
         )}
       </div>
       <div>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">{label}</p>
-        <p className="text-2xl font-semibold text-slate-900 dark:text-white tracking-tight">{value}</p>
-        {hint && <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{hint}</p>}
+        <p className="text-sm text-ink-400 mb-1">{label}</p>
+        <p className="text-2xl font-semibold text-ink-100 tracking-tight tabular-nums">{value}</p>
+        {hint && <p className="text-xs text-ink-400/70 mt-1">{hint}</p>}
       </div>
     </div>
   );

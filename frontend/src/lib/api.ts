@@ -1,5 +1,5 @@
 import type { AuthUser } from '../context/auth-context';
-import type { Campaign, CampaignAsset, DashboardSummary, PlatformBreakdownPoint, TimeseriesPoint } from './types';
+import type { Campaign, CampaignAsset, CampaignMetricsSummary, CampaignTimeseriesPoint, DashboardSummary, PlatformBreakdownPoint, TimeseriesPoint } from './types';
 
 // .env dosyasındaki adresi çeker
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -88,4 +88,6 @@ export const metricsApi = {
   summary: () => fetchAPI<DashboardSummary>('/metrics/summary'),
   timeseries: () => fetchAPI<TimeseriesPoint[]>('/metrics/timeseries'),
   byPlatform: () => fetchAPI<PlatformBreakdownPoint[]>('/metrics/platform'),
+  campaignSummary: (id: string) => fetchAPI<CampaignMetricsSummary>(`/campaigns/${id}/metrics/summary`),
+  campaignTimeseries: (id: string) => fetchAPI<CampaignTimeseriesPoint[]>(`/campaigns/${id}/metrics/timeseries`),
 };

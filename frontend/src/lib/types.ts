@@ -117,3 +117,15 @@ export type DashboardSummary = {
 
 export type TimeseriesPoint = { date: string; clicks: number; spend: number };
 export type PlatformBreakdownPoint = { platform: string; clicks: number; spend: number };
+
+export type CampaignMetricsSummary = {
+  clicks: number;
+  impressions: number;
+  spend: number;
+  revenue: number;
+  profit: number;
+  conversions: number;
+  ctr: number;
+  has_performance_data: boolean;
+};
+export type CampaignTimeseriesPoint = { date: string; clicks: number; spend: number; impressions: number; revenue: number };
