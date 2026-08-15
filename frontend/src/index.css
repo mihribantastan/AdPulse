@@ -5,6 +5,53 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Koyu tema (varsayılan) */
+    --ink-950: 10 11 15;
+    --ink-900: 18 20 27;
+    --ink-800: 27 30 40;
+    --ink-700: 41 45 58;
+    --ink-400: 139 147 167;
+    --ink-100: 241 243 247;
+    --accent-600: 24 147 179;
+    --accent-500: 51 194 232;
+    --accent-400: 111 217 242;
+    --accent-100: 207 243 250;
+    --glass: 255 255 255;
+    --page-gradient: linear-gradient(160deg, #0A0B0F 0%, #0D1420 55%, #0A0B0F 100%);
+  }
+
+  :root.light {
+    /* Açık tema */
+    --ink-950: 246 248 250;
+    --ink-900: 255 255 255;
+    --ink-800: 226 231 238;
+    --ink-700: 203 210 221;
+    --ink-400: 100 112 130;
+    --ink-100: 17 24 35;
+    --accent-600: 8 126 153;
+    --accent-500: 14 148 178;
+    --accent-400: 34 178 209;
+    --accent-100: 224 246 251;
+    --glass: 15 23 42;
+    --page-gradient: linear-gradient(160deg, #F6F8FA 0%, #EBEFF3 55%, #F6F8FA 100%);
+  }
+
+  /* Login/Signup her zaman koyu kalsın; genel tema anahtarından etkilenmesin */
+  [data-force-dark] {
+    --ink-950: 10 11 15;
+    --ink-900: 18 20 27;
+    --ink-800: 27 30 40;
+    --ink-700: 41 45 58;
+    --ink-400: 139 147 167;
+    --ink-100: 241 243 247;
+    --accent-600: 24 147 179;
+    --accent-500: 51 194 232;
+    --accent-400: 111 217 242;
+    --accent-100: 207 243 250;
+    --glass: 255 255 255;
+  }
+
   body {
     font-family: 'Inter', sans-serif;
     background-color: #f5f7fa; /* Seçtiğin arka plan */
@@ -12,7 +59,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  
+
   ::-webkit-scrollbar {
     display: none;
   }

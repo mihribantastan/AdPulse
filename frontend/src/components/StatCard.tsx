@@ -11,7 +11,7 @@ type StatCardProps = {
 
 export function StatCard({ label, value, delta, hint, icon: Icon, positive = true }: StatCardProps) {
   return (
-    <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-5 transition-colors hover:border-white/20 hover:bg-white/[0.05]">
+    <div className="bg-glass/[0.03] backdrop-blur-xl border border-glass/10 rounded-2xl p-5 transition-colors hover:border-glass/20 hover:bg-glass/[0.05]">
       <div className="flex items-center justify-between mb-5">
         <div className="w-9 h-9 rounded-lg bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-accent-400">
           <Icon size={18} strokeWidth={2} />

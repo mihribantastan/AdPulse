@@ -24,7 +24,7 @@ export function TopNav() {
         <span className="font-display text-base tracking-tight text-ink-100">AdPulse</span>
       </div>
 
-      <div className="flex items-center gap-1 bg-white/[0.04] rounded-full p-1">
+      <div className="flex items-center gap-1 bg-glass/[0.04] rounded-full p-1">
         {links.map(({ to, label }) => (
           <NavLink key={to} to={to} className={pillClass}>
             {label}

@@ -99,7 +99,7 @@ export function CampaignReport() {
         <div className="space-y-4">
 
           {/* Başlık */}
-          <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6 flex flex-wrap items-center gap-4">
+          <div className="bg-glass/[0.03] backdrop-blur-xl border border-glass/10 rounded-2xl p-6 flex flex-wrap items-center gap-4">
             <span className={`text-[11px] font-medium px-2.5 py-1 rounded-md ${status.className}`}>{status.label}</span>
             <h2 className="font-display text-xl text-ink-100">{campaign.target_url_or_product}</h2>
             <div className="flex items-center gap-1.5 ml-auto">
@@ -108,7 +108,7 @@ export function CampaignReport() {
           </div>
 
           {/* KPI Şeridi */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 divide-x divide-y lg:divide-y-0 divide-white/10 bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 divide-x divide-y lg:divide-y-0 divide-glass/10 bg-glass/[0.03] backdrop-blur-xl border border-glass/10 rounded-2xl overflow-hidden">
             <StripStat icon={Wallet} label="Harcama" value={`₺${summary.spend.toLocaleString('tr-TR')}`} />
             <StripStat icon={MousePointerClick} label="Tıklama" value={summary.clicks.toLocaleString('tr-TR')} />
             <StripStat icon={Eye} label="Gösterim" value={summary.impressions.toLocaleString('tr-TR')} />
@@ -119,7 +119,7 @@ export function CampaignReport() {
 
           {/* Tıklama Trendi */}
           {prefs.clicksChart && (
-            <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6 md:p-8">
+            <div className="bg-glass/[0.03] backdrop-blur-xl border border-glass/10 rounded-2xl p-6 md:p-8">
               <div className="flex items-center gap-2.5 mb-6">
                 <LineChartIcon size={16} className="text-ink-400" />
                 <div>
@@ -153,7 +153,7 @@ export function CampaignReport() {
 
           {/* Harcama & Gelir */}
           {prefs.spendRevenueChart && (
-            <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6 md:p-8">
+            <div className="bg-glass/[0.03] backdrop-blur-xl border border-glass/10 rounded-2xl p-6 md:p-8">
               <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
                 <div className="flex items-center gap-2.5">
                   <Wallet size={16} className="text-ink-400" />
@@ -190,7 +190,7 @@ export function CampaignReport() {
 
           {/* AI Strateji Özeti */}
           {prefs.strategyBrief && brief && (
-            <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6 md:p-8">
+            <div className="bg-glass/[0.03] backdrop-blur-xl border border-glass/10 rounded-2xl p-6 md:p-8">
               <div className="flex items-center gap-2.5 mb-4">
                 <FileText size={16} className="text-ink-400" />
                 <h4 className="font-display text-base text-ink-100 tracking-tight">AI Strateji Özeti</h4>

@@ -1,6 +1,9 @@
 import json
 import os
 import re
+import html as html_lib
+
+import requests
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
@@ -9,12 +12,63 @@ from openai import OpenAI
 from state import CampaignState
 
 
+def _fetch_site_context(url: str) -> str | None:
+    """target_product bir URL ise gerçek sayfayı çekip ham metnini çıkarır.
+    Kullanıcı 'öne çıkan özellikler' vs. alanlarını boş bırakırsa ajanların
+    elinde ürün adından başka hiçbir şey kalmıyordu - bu jenerik çıktının asıl
+    sebebiydi. Burada siteden gerçek başlık/açıklama/gövde metni çekilip
+    ajanlara somut malzeme olarak veriliyor. BeautifulSoup gibi ek bir
+    bağımlılık gerekmesin diye kaba ama yeterli bir regex tabanlı ayıklama
+    kullanılıyor - LLM'e beslenecek metin için mükemmel temizlik şart değil.
+    """
+    if not url.strip().lower().startswith(("http://", "https://")):
+        return None
+
+    try:
+        response = requests.get(
+            url,
+            timeout=8,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; AdPulseBot/1.0)"},
+        )
+        response.raise_for_status()
+        raw = response.text
+    except requests.RequestException as e:
+        print(f"⚠️ [Research Agent] Site içeriği çekilemedi ({url}): {e}")
+        return None
+
+    title_match = re.search(r"<title[^>]*>(.*?)</title>", raw, re.IGNORECASE | re.DOTALL)
+    desc_match = re.search(
+        r'<meta[^>]+name=["\']description["\'][^>]+content=["\'](.*?)["\']',
+        raw, re.IGNORECASE,
+    )
+
+    body = re.sub(r"<(script|style|nav|footer|header)[^>]*>.*?</\1>", " ", raw, flags=re.IGNORECASE | re.DOTALL)
+    body = re.sub(r"<[^>]+>", " ", body)
+    body = html_lib.unescape(body)
+    body = re.sub(r"\s+", " ", body).strip()
+
+    parts = []
+    if title_match:
+        parts.append(f"Sayfa başlığı: {html_lib.unescape(title_match.group(1)).strip()}")
+    if desc_match:
+        parts.append(f"Sayfa açıklaması: {html_lib.unescape(desc_match.group(1)).strip()}")
+    if body:
+        parts.append(f"Sayfa içeriğinden alıntı: {body[:2500]}")
+
+    return "\n".join(parts) if parts else None
+
+
 def _build_brief_context(state: CampaignState) -> str:
     """Kullanıcının formda verdiği somut bilgileri tek bir blokta toplar.
     Bunlar olmadan LLM ürünü/siteyi hiç bilmediği için jenerik, sektör
     klişesi metinler üretiyordu - burada verilen her şey ajanların
     kullanabileceği gerçek, somut girdi."""
     lines = [f"Ürün/Hizmet: {state['target_product']}"]
+
+    site_context = _fetch_site_context(state["target_product"])
+    if site_context:
+        lines.append(f"\nHedef sayfadan otomatik çekilen gerçek içerik (bunu birebir kullan, uydurma):\n{site_context}")
+
     if state.get("target_audience"):
         lines.append(f"Kullanıcının belirttiği hedef kitle: {state['target_audience']}")
     if state.get("key_features"):

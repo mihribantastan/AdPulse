@@ -9,7 +9,7 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
   return (
     <div
       onClick={() => navigate(`/app/campaigns/${campaign.id}`)}
-      className="bg-white/[0.03] backdrop-blur-xl border border-white/10 p-5 rounded-2xl flex items-center justify-between gap-6 hover:border-white/20 hover:bg-white/[0.05] transition-colors cursor-pointer group"
+      className="bg-glass/[0.03] backdrop-blur-xl border border-glass/10 p-5 rounded-2xl flex items-center justify-between gap-6 hover:border-glass/20 hover:bg-glass/[0.05] transition-colors cursor-pointer group"
     >
       <div className="flex items-center gap-4 min-w-0">
         <div className="w-11 h-11 shrink-0 rounded-xl bg-accent-500/10 border border-accent-500/20 flex items-center justify-center text-accent-400">

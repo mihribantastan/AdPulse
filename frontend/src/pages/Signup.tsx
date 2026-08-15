@@ -35,7 +35,7 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen relative flex bg-ink-950 text-ink-100 font-sans overflow-hidden">
+    <div data-force-dark className="min-h-screen relative flex bg-ink-950 text-ink-100 font-sans overflow-hidden">
       {/* Ambient glow */}
       <div
         className="pointer-events-none absolute -top-40 -left-32 w-[42rem] h-[42rem] rounded-full opacity-40 blur-[110px]"

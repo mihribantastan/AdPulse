@@ -60,7 +60,7 @@ export function Dashboard() {
 
         {/* Hero + Onay çağrısı */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-          <div className="lg:col-span-8 relative overflow-hidden rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 text-ink-100 p-8 md:p-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="lg:col-span-8 relative overflow-hidden rounded-2xl bg-glass/[0.03] backdrop-blur-xl border border-glass/10 text-ink-100 p-8 md:p-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div
               className="pointer-events-none absolute -top-24 -right-16 w-96 h-96 rounded-full opacity-30 blur-[90px]"
               style={{ background: 'radial-gradient(circle, #33C2E8 0%, transparent 70%)' }}
@@ -70,7 +70,7 @@ export function Dashboard() {
               style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }}
             />
             <div className="space-y-4 max-w-xl relative z-10">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.06] border border-white/10 text-xs font-medium text-ink-100">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-glass/[0.06] border border-glass/10 text-xs font-medium text-ink-100">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Sistem Aktif
               </div>
               <h2 className="font-display text-2xl md:text-3xl tracking-tight leading-snug text-balance">
@@ -105,7 +105,7 @@ export function Dashboard() {
             {pendingCampaigns.length > 0 ? (
               <div className="mt-5 space-y-2">
                 {pendingCampaigns.map((c) => (
-                  <div key={c.id} className="flex items-center gap-2 text-sm text-ink-100 bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2">
+                  <div key={c.id} className="flex items-center gap-2 text-sm text-ink-100 bg-glass/[0.04] border border-glass/10 rounded-lg px-3 py-2">
                     <div className="flex gap-1 shrink-0">
                       {c.platforms.slice(0, 2).map((p) => <PlatformBadge key={p} platform={p} size="sm" />)}
                     </div>
@@ -124,7 +124,7 @@ export function Dashboard() {
         </div>
 
         {/* Reklam Performansı - şerit */}
-        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-white/10 bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
+        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-glass/10 bg-glass/[0.03] backdrop-blur-xl border border-glass/10 rounded-2xl overflow-hidden">
           <StripStat icon={MousePointerClick} label="Tıklama" value={summary ? summary.clicks.toLocaleString('tr-TR') : '—'} hint={!hasPerf ? 'Henüz veri yok' : undefined} />
           <StripStat icon={Wallet} label="Harcama" value={summary ? `₺${summary.spend.toLocaleString('tr-TR')}` : '—'} hint={!hasPerf ? 'Henüz veri yok' : undefined} />
           <StripStat icon={TrendingUp} label="Net Kâr" value={summary ? `₺${summary.profit.toLocaleString('tr-TR')}` : '—'} hint={!hasPerf ? 'Henüz veri yok' : undefined} />
@@ -142,7 +142,7 @@ export function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
           {/* Tıklama Trendi - öne çıkan */}
-          <div className="lg:col-span-7 bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6 md:p-8">
+          <div className="lg:col-span-7 bg-glass/[0.03] backdrop-blur-xl border border-glass/10 rounded-2xl p-6 md:p-8">
             <div className="flex items-center gap-2.5 mb-6">
               <LineChartIcon size={16} className="text-ink-400" />
               <div>
@@ -183,7 +183,7 @@ export function Dashboard() {
           </div>
 
           {/* Platform Dağılımı */}
-          <div className="lg:col-span-5 bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6 md:p-8">
+          <div className="lg:col-span-5 bg-glass/[0.03] backdrop-blur-xl border border-glass/10 rounded-2xl p-6 md:p-8">
             <div className="flex items-center gap-2.5 mb-6">
               <BarChart3 size={16} className="text-ink-400" />
               <div>
@@ -223,7 +223,7 @@ export function Dashboard() {
         </div>
 
         {/* Harcama & Net Kâr - tam genişlik */}
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6 md:p-8">
+        <div className="bg-glass/[0.03] backdrop-blur-xl border border-glass/10 rounded-2xl p-6 md:p-8">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2.5">
               <Wallet size={16} className="text-ink-400" />

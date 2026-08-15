@@ -33,7 +33,7 @@ export function Campaigns() {
       <div className="space-y-4 pb-12">
 
         {/* Arama ve Filtreleme */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-white/[0.03] backdrop-blur-xl border border-white/10 p-2 rounded-xl">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-glass/[0.03] backdrop-blur-xl border border-glass/10 p-2 rounded-xl">
           <div className="flex items-center gap-1 pl-1 w-full md:w-auto">
             {FILTERS.map((f) => (
               <button
@@ -56,7 +56,7 @@ export function Campaigns() {
               placeholder="Kampanya ara..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-white/[0.03] border border-white/10 rounded-lg py-2 pl-9 pr-4 text-sm outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/25 text-ink-100 transition-colors placeholder:text-ink-400"
+              className="w-full bg-glass/[0.03] border border-glass/10 rounded-lg py-2 pl-9 pr-4 text-sm outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/25 text-ink-100 transition-colors placeholder:text-ink-400"
             />
           </div>
         </div>
@@ -68,7 +68,7 @@ export function Campaigns() {
           ))}
 
           {filtered.length === 0 && (
-            <div className="border border-dashed border-white/15 rounded-2xl p-16 text-center">
+            <div className="border border-dashed border-glass/15 rounded-2xl p-16 text-center">
               <p className="text-ink-400 text-sm">Eşleşen kampanya bulunamadı.</p>
             </div>
           )}

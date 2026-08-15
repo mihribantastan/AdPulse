@@ -11,7 +11,7 @@ export function Settings() {
       <div className="max-w-3xl mx-auto space-y-4 pb-10">
 
         {/* Bütçe Koruması (AI Güvenliği) */}
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 p-6 md:p-8 rounded-2xl">
+        <div className="bg-glass/[0.03] backdrop-blur-xl border border-glass/10 p-6 md:p-8 rounded-2xl">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-10 h-10 bg-rose-500/10 rounded-lg flex items-center justify-center text-rose-400">
               <ShieldAlert size={19} />
@@ -36,14 +36,14 @@ export function Settings() {
               <input
                 defaultValue="5000"
                 type="number"
-                className="w-full bg-white/[0.03] border border-white/10 rounded-lg py-2.5 pl-8 pr-4 text-sm font-medium outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/25 transition-colors text-ink-100"
+                className="w-full bg-glass/[0.03] border border-glass/10 rounded-lg py-2.5 pl-8 pr-4 text-sm font-medium outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/25 transition-colors text-ink-100"
               />
             </div>
           </div>
         </div>
 
         {/* Rapor Tercihleri */}
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 p-6 md:p-8 rounded-2xl">
+        <div className="bg-glass/[0.03] backdrop-blur-xl border border-glass/10 p-6 md:p-8 rounded-2xl">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-accent-500/10 border border-accent-500/20 rounded-lg flex items-center justify-center text-accent-400">
               <FileText size={19} />
@@ -54,7 +54,7 @@ export function Settings() {
             </div>
           </div>
 
-          <div className="divide-y divide-white/10">
+          <div className="divide-y divide-glass/10">
             <Toggle
               label="Tıklama Trendi Grafiği"
               description="Son 14 günün günlük tıklama grafiği."
@@ -77,7 +77,7 @@ export function Settings() {
         </div>
 
         {/* Platform Bağlantıları */}
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 p-6 md:p-8 rounded-2xl">
+        <div className="bg-glass/[0.03] backdrop-blur-xl border border-glass/10 p-6 md:p-8 rounded-2xl">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-10 h-10 bg-accent-500/10 border border-accent-500/20 rounded-lg flex items-center justify-center text-accent-400">
               <Link2 size={19} />
@@ -88,8 +88,8 @@ export function Settings() {
             </div>
           </div>
 
-          <div className="bg-white/[0.02] border border-dashed border-white/15 p-8 rounded-xl text-center">
-            <div className="w-12 h-12 bg-white/[0.04] rounded-full flex items-center justify-center mx-auto mb-3 border border-white/10">
+          <div className="bg-glass/[0.02] border border-dashed border-glass/15 p-8 rounded-xl text-center">
+            <div className="w-12 h-12 bg-glass/[0.04] rounded-full flex items-center justify-center mx-auto mb-3 border border-glass/10">
               <Sparkles size={20} className="text-ink-400" />
             </div>
             <h4 className="text-sm font-semibold text-ink-100 mb-1.5">Entegrasyonlar Hazırlanıyor</h4>

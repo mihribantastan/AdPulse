@@ -12,12 +12,12 @@ const ALL_TONES: BrandTone[] = ['profesyonel', 'samimi', 'eglenceli', 'lux', 'en
 const ALL_GOALS: CampaignGoal[] = ['brand_awareness', 'conversions', 'traffic', 'lead_generation', 'app_installs'];
 const ALL_CTAS: CtaPreference[] = ['buy_now', 'learn_more', 'try_free', 'sign_up', 'contact_us'];
 
-const inputClass = 'w-full bg-white/[0.03] border border-white/10 rounded-lg py-2.5 px-4 text-sm outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/25 text-ink-100 transition-colors placeholder:text-ink-400';
+const inputClass = 'w-full bg-glass/[0.03] border border-glass/10 rounded-lg py-2.5 px-4 text-sm outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/25 text-ink-100 transition-colors placeholder:text-ink-400';
 const chipClass = (active: boolean) =>
   `px-3.5 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
     active
       ? 'border-accent-500 bg-accent-500/10 text-accent-400'
-      : 'border-white/10 bg-white/[0.03] text-ink-400 hover:border-white/20'
+      : 'border-glass/10 bg-glass/[0.03] text-ink-400 hover:border-glass/20'
   }`;
 
 export function NewCampaign() {
@@ -80,7 +80,7 @@ export function NewCampaign() {
       <form onSubmit={submit} className="space-y-4 pb-12">
 
         {/* Parametre Kutusu */}
-        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 p-6 md:p-8 rounded-2xl space-y-7">
+        <div className="bg-glass/[0.03] backdrop-blur-xl border border-glass/10 p-6 md:p-8 rounded-2xl space-y-7">
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2.5">
@@ -201,7 +201,7 @@ export function NewCampaign() {
               <h3 className="text-sm font-semibold">Kendi Görsel/Videolarınız <span className="text-ink-400 font-normal">(opsiyonel)</span></h3>
             </div>
             <p className="text-xs text-ink-400">Ürününüze ait gerçek fotoğraf/video varsa ekleyin; AI'nın ürettiği görsellerin yanında referans olarak saklanır.</p>
-            <label className="flex items-center justify-center gap-2 border border-dashed border-white/15 rounded-lg py-4 text-sm text-ink-400 cursor-pointer hover:border-accent-500/50 transition-colors">
+            <label className="flex items-center justify-center gap-2 border border-dashed border-glass/15 rounded-lg py-4 text-sm text-ink-400 cursor-pointer hover:border-accent-500/50 transition-colors">
               <ImagePlus size={16} />
               Dosya seç (görsel veya video, en fazla 10 adet)
               <input type="file" multiple accept="image/*,video/*" onChange={onFilesSelected} className="hidden" />
@@ -209,7 +209,7 @@ export function NewCampaign() {
             {files.length > 0 && (
               <ul className="space-y-1.5">
                 {files.map((file, i) => (
-                  <li key={i} className="flex items-center justify-between gap-2 bg-white/[0.03] border border-white/10 rounded-lg py-2 px-3 text-sm text-ink-100">
+                  <li key={i} className="flex items-center justify-between gap-2 bg-glass/[0.03] border border-glass/10 rounded-lg py-2 px-3 text-sm text-ink-100">
                     <span className="flex items-center gap-2 min-w-0">
                       {file.type.startsWith('video/') ? <Film size={14} className="shrink-0 text-ink-400" /> : <ImagePlus size={14} className="shrink-0 text-ink-400" />}
                       <span className="truncate">{file.name}</span>

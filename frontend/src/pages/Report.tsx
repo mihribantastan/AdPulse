@@ -36,7 +36,7 @@ export function Reports() {
       <div className="space-y-4">
 
         {/* Üst Bilgi Kartı */}
-        <div className="relative overflow-hidden rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 p-8 md:p-10 text-ink-100 flex flex-col md:flex-row items-center justify-between gap-8">
+        <div className="relative overflow-hidden rounded-2xl bg-glass/[0.03] backdrop-blur-xl border border-glass/10 p-8 md:p-10 text-ink-100 flex flex-col md:flex-row items-center justify-between gap-8">
           <div
             className="pointer-events-none absolute -top-24 -right-16 w-96 h-96 rounded-full opacity-30 blur-[90px]"
             style={{ background: 'radial-gradient(circle, #33C2E8 0%, transparent 70%)' }}
@@ -46,7 +46,7 @@ export function Reports() {
             style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }}
           />
           <div className="space-y-3 max-w-2xl relative z-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.06] border border-white/10 text-xs font-medium text-ink-100">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-glass/[0.06] border border-glass/10 text-xs font-medium text-ink-100">
               Kampanya Özeti
             </div>
             <h3 className="font-display text-2xl md:text-3xl tracking-tight leading-snug text-balance">
@@ -91,7 +91,7 @@ export function Reports() {
                   <div
                     key={campaign.id}
                     onClick={() => navigate(`/app/reports/${campaign.id}`)}
-                    className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:border-white/20 hover:bg-white/[0.05] transition-colors flex flex-col group cursor-pointer"
+                    className="bg-glass/[0.03] backdrop-blur-xl border border-glass/10 rounded-2xl p-6 hover:border-glass/20 hover:bg-glass/[0.05] transition-colors flex flex-col group cursor-pointer"
                   >
                     <div className="flex justify-between items-start mb-5">
                       <div className="w-11 h-11 rounded-xl flex items-center justify-center text-accent-400 bg-accent-500/10 border border-accent-500/20">
@@ -116,7 +116,7 @@ export function Reports() {
                       </p>
                     </div>
 
-                    <div className="pt-5 mt-5 border-t border-white/10 flex items-center justify-between">
+                    <div className="pt-5 mt-5 border-t border-glass/10 flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
                         {campaign.platforms.map((p) => (
                           <PlatformBadge key={p} platform={p} size="sm" />
@@ -134,7 +134,7 @@ export function Reports() {
         )}
 
         {loaded && campaigns.length === 0 && (
-          <div className="border border-dashed border-white/15 rounded-2xl p-16 text-center">
+          <div className="border border-dashed border-glass/15 rounded-2xl p-16 text-center">
             <p className="text-ink-400 text-sm">Henüz kampanya oluşturulmadı.</p>
           </div>
         )}
