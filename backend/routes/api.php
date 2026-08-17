@@ -6,6 +6,9 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\MetricsController;
 
+// Render health check (kimlik doğrulama gerektirmez)
+Route::get('/health', fn () => response()->json(['status' => 'ok']));
+
 // --------------------------------------------------------
 // 0. KİMLİK DOĞRULAMA
 // --------------------------------------------------------
@@ -34,6 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/campaigns/{campaign}', [CampaignController::class, 'show']);
     Route::post('/campaigns/{campaign}/approve', [CampaignController::class, 'approve']);
     Route::post('/campaigns/{campaign}/assets', [CampaignController::class, 'uploadAssets']);
+    Route::post('/campaigns/{campaign}/start', [CampaignController::class, 'start']);
 
     // --------------------------------------------------------
     // 2. METRİKLER: gerçek reklam performansı + kampanya boru hattı istatistikleri

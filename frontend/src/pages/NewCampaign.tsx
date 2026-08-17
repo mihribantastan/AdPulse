@@ -67,6 +67,8 @@ export function NewCampaign() {
       if (files.length > 0) {
         await campaignsApi.uploadAssets(campaign.id, files);
       }
+      // Ajanları görseller (varsa) diskte hazır olduktan sonra tetikliyoruz
+      await campaignsApi.start(campaign.id);
       navigate('/app/campaigns');
     } catch {
       navigate('/app/campaigns');

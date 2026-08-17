@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import re
@@ -10,6 +11,56 @@ from langchain_openai import ChatOpenAI
 from openai import OpenAI
 
 from state import CampaignState
+
+# Her kategori için Creative Agent'a eklenen ekstra yönlendirme. Tek bir genel
+# prompt yerine, kampanyanın gerçekte ne olduğuna (fiziksel ürün mü, SaaS mı,
+# yerel işletme mi...) göre metin yapısı ve görsel kompozisyonu değişsin diye.
+CATEGORY_GUIDANCE = {
+    "e_ticaret_urun": (
+        "Bu bir e-ticaret/fiziksel ürün kampanyası. ad_copy'lerde fiyat avantajı, kargo/teslimat hızı, "
+        "stok sınırlılığı gibi somut aciliyet unsurlarına yer ver. image_prompt'lar ürünü net ve çekici "
+        "şekilde öne çıkaran, e-ticaret reklamlarına uygun temiz kompozisyonlarda olsun."
+    ),
+    "dijital_hizmet_saas": (
+        "Bu bir yazılım/SaaS/dijital hizmet kampanyası. ad_copy'lerde somut zaman/para tasarrufu, "
+        "ücretsiz deneme gibi unsurları vurgula. image_prompt'lar arayüz/ekran hissi veren veya soyut, "
+        "modern, teknolojik kompozisyonlarda olsun."
+    ),
+    "mobil_uygulama": (
+        "Bu bir mobil uygulama kampanyası. ad_copy'de 'hemen indir', kolaylık ve anlık faydaya vurgu yap. "
+        "image_prompt'lar telefon ekranında uygulamayı kullanma anını ima eden kompozisyonlarda olsun."
+    ),
+    "yerel_hizmet_isletme": (
+        "Bu yerel bir işletme/hizmet kampanyası. ad_copy'de güven, konum yakınlığı, randevu/iletişim "
+        "kolaylığına vurgu yap. image_prompt'lar sıcak, gerçekçi, samimi mekan/insan hissi veren "
+        "kompozisyonlarda olsun."
+    ),
+    "etkinlik_organizasyon": (
+        "Bu bir etkinlik/organizasyon kampanyası. ad_copy'de tarih aciliyeti ve deneyim vurgusu yap. "
+        "image_prompt'lar enerjik, davetkar bir etkinlik atmosferi taşısın."
+    ),
+}
+
+
+def _classify_product_category(context: str) -> str | None:
+    """Kampanyanın gerçek türünü (e-ticaret, SaaS, yerel hizmet vb.) tespit eder.
+    Sabit bir anahtar kelime sözlüğü yerine LLM'e sorduk çünkü gerçek metinler
+    çok çeşitli oluyor; LLM anlam bazında çok daha güvenilir sınıflandırıyor."""
+    categories = list(CATEGORY_GUIDANCE.keys())
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0)
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", f"Aşağıdaki kampanya bilgisini oku ve SADECE şu kategorilerden birini yaz, "
+                   f"başka hiçbir şey yazma: {', '.join(categories)}, genel"),
+        ("user", "{context}"),
+    ])
+    try:
+        chain = prompt | llm
+        response = chain.invoke({"context": context})
+        category = response.content.strip().lower()
+        return category if category in categories else None
+    except Exception as e:
+        print(f"⚠️ [Research Agent] Kategori sınıflandırma başarısız: {e}")
+        return None
 
 
 def _fetch_site_context(url: str) -> str | None:
@@ -101,11 +152,28 @@ def research_agent(state: CampaignState):
     chain = prompt | llm
     response = chain.invoke({"context": context})
 
-    print("🔍 [Research Agent] Brief başarıyla oluşturuldu.")
+    product_category = _classify_product_category(context)
+    print(f"🔍 [Research Agent] Brief başarıyla oluşturuldu. Kategori: {product_category or 'genel'}")
+
     return {
         "strategy_brief": response.content,
+        "product_category": product_category,
         "audit_log": current_logs + ["Research Agent: Pazar araştırması tamamlandı."],
     }
+
+
+def _download_reference_image(url: str) -> io.BytesIO | None:
+    """Kullanıcının kampanyaya yüklediği gerçek ürün görselini worker'ın
+    ulaşabildiği dahili URL'den indirir (bkz. CampaignController::dispatchToAgentQueue)."""
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        buffer = io.BytesIO(response.content)
+        buffer.name = "reference.png"  # OpenAI SDK dosya tipini isimden çıkarıyor
+        return buffer
+    except requests.RequestException as e:
+        print(f"⚠️ [Creative Agent] Referans görsel indirilemedi ({url}): {e}")
+        return None
 
 
 def creative_agent(state: CampaignState):
@@ -113,6 +181,8 @@ def creative_agent(state: CampaignState):
     strategy_brief = state.get("strategy_brief", "")
     current_logs = state.get("audit_log", [])
     context = _build_brief_context(state)
+    category_guidance = CATEGORY_GUIDANCE.get(state.get("product_category") or "", "")
+    reference_urls = state.get("reference_image_urls") or []
 
     # 1. AŞAMA: Metin üretimi
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
@@ -134,6 +204,7 @@ def creative_agent(state: CampaignState):
          "olarak kullanılabilecek 4-6 cümlelik, doyurucu bir metin yaz (yaklaşık 400-600 karakter). "
          "image_prompt de jenerik stok-fotoğraf tarzında olmasın; ürünün/hizmetin somut özelliklerini ve "
          "istenen marka tonunu görsel olarak yansıtsın.\n"
+         "{category_guidance}\n"
          "Çıktını SADECE JSON formatında bir dizi olarak ver:\n"
          '[\n'
          '  {{"target_audience": "Kitle", "ad_copy": "Metin", "image_prompt": "English prompt"}}\n'
@@ -141,22 +212,41 @@ def creative_agent(state: CampaignState):
         ("user", "{context}\n\nStrateji Brief'i: {brief}"),
     ])
     chain = prompt | llm
-    response = chain.invoke({"context": context, "brief": strategy_brief})
+    response = chain.invoke({"context": context, "brief": strategy_brief, "category_guidance": category_guidance})
 
     match = re.search(r'\[.*\]', response.content, re.DOTALL)
     creatives_list = json.loads(match.group(0)) if match else []
 
-    # 2. AŞAMA: Her kreatif için ayrı görsel üretimi (kullanıcı üçünden birini seçebilsin diye)
+    # 2. AŞAMA: Her kreatif için ayrı görsel üretimi (kullanıcı üçünden birini seçebilsin diye).
+    # Kullanıcı kendi ürün görseli yüklediyse (video değil - edit API görsel ister),
+    # sıfırdan hayal etmek yerine o gerçek görseli referans alıp düzenliyoruz.
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    reference_image = _download_reference_image(reference_urls[0]) if reference_urls else None
+    if reference_image:
+        print(f"🎨 [Creative Agent] Kullanıcının yüklediği görsel referans alınacak: {reference_urls[0]}")
+
     for creative in creatives_list:
         try:
             print(f"🎨 [Creative Agent] Görsel üretiliyor: {creative.get('target_audience')}...")
-            image_response = client.images.generate(
-                model="gpt-image-1",
-                prompt=creative["image_prompt"],
-                size="1024x1024",
-                n=1,
-            )
+            if reference_image:
+                reference_image.seek(0)
+                image_response = client.images.edit(
+                    model="gpt-image-1",
+                    image=reference_image,
+                    prompt=(
+                        "Bu gerçek ürün/mekan görselini referans alarak, ürünün gerçek görünümünü koruyan "
+                        f"profesyonel bir reklam görseline dönüştür: {creative['image_prompt']}"
+                    ),
+                    size="1024x1024",
+                    n=1,
+                )
+            else:
+                image_response = client.images.generate(
+                    model="gpt-image-1",
+                    prompt=creative["image_prompt"],
+                    size="1024x1024",
+                    n=1,
+                )
             image_data = image_response.data[0]
 
             if getattr(image_data, "b64_json", None):

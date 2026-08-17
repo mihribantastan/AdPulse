@@ -10,6 +10,7 @@ import time
 from graph import app  # LangGraph beynimizi buraya dahil ediyoruz
 from publisher import publish_campaign
 
+REDIS_URL = os.environ.get("REDIS_URL")
 REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
 LARAVEL_URL = os.environ.get("LARAVEL_URL", "http://127.0.0.1:8000/api/campaigns/complete")
@@ -17,8 +18,13 @@ LARAVEL_PUBLISH_URL = os.environ.get(
     "LARAVEL_PUBLISH_URL", "http://127.0.0.1:8000/api/campaigns/publish-complete"
 )
 
-# decode_responses=True parametresi byte verisini direkt string'e çevirir
-r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
+# decode_responses=True parametresi byte verisini direkt string'e çevirir.
+# REDIS_URL varsa (ör. Upstash: rediss://... TLS bağlantısı) onu kullan;
+# yoksa docker-compose'daki gibi host/port ile bağlan.
+if REDIS_URL:
+    r = redis.from_url(REDIS_URL, decode_responses=True)
+else:
+    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
 
 def handle_publish_job(message: str) -> None:
     payload = json.loads(message)
@@ -77,6 +83,7 @@ def listen_for_campaigns():
                     "campaign_goal": campaign_data.get("campaign_goal"),
                     "cta_preference": campaign_data.get("cta_preference"),
                     "daily_budget": float(campaign_data.get("daily_budget", 0)),
+                    "reference_image_urls": campaign_data.get("reference_image_urls") or [],
                     "status": "pending"
                 }
 

@@ -13,8 +13,15 @@ class CampaignState(TypedDict):
     campaign_goal: Optional[str]
     cta_preference: Optional[str]
 
+    # Kullanıcının kampanyaya yüklediği gerçek görsellerin worker'ın erişebileceği URL'leri
+    # (Creative Agent görsel üretirken referans olarak kullanır)
+    reference_image_urls: Optional[List[str]]
+
     # Research Agent çıktısı: sonraki ajanların temel aldığı strateji özeti
     strategy_brief: Optional[str]
+
+    # Research Agent çıktısı: Creative Agent'ın prompt'unu ona göre özelleştirdiği ürün kategorisi
+    product_category: Optional[str]
 
     # Creative Agent çıktısı: [{"target_audience", "ad_copy", "image_prompt", "generated_image_url"}]
     creatives: Optional[List[Dict[str, str]]]

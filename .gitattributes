@@ -1,0 +1,6 @@
+# Linux konteynerlerinde çalışacak dosyalar: Windows'un core.autocrlf=true
+# ayarı bunları CRLF'e çevirirse (özellikle shebang satırı) konteyner içinde
+# çalışmaz / bozuk yorumlanır. Bu dosyalar için satır sonu her zaman LF.
+*.sh text eol=lf
+docker/* text eol=lf
+Dockerfile* text eol=lf

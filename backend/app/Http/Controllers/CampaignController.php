@@ -73,13 +73,24 @@ class CampaignController extends Controller
             'ai_analysis_results' => null,
         ]);
 
-        // 2. Ajanları tetikle: kampanyayı Redis kuyruğuna at (ai_layer/queue_worker.py dinliyor)
-        $this->dispatchToAgentQueue($campaign);
-
+        // 2. Ajanları HENÜZ tetiklemiyoruz: kullanıcı görsel/video yükleyecekse
+        // (bkz. uploadAssets) o yükleme bitene kadar bekliyoruz, yoksa Creative
+        // Agent görsel üretirken henüz var olmayan dosyaları arar. Frontend,
+        // yükleme bittikten sonra (veya hiç yoksa hemen) /start çağırır.
         return response()->json([
-            'message' => 'Kampanya oluşturuldu ve ajanlara iletildi.',
+            'message' => 'Kampanya oluşturuldu.',
             'data' => $campaign
         ], 201);
+    }
+
+    // Kampanya oluşturulduktan (ve varsa görseller yüklendikten) sonra ajan
+    // zincirini asıl başlatan çağrı
+    public function start(Request $request, Campaign $campaign)
+    {
+        $this->authorizeOwner($request, $campaign);
+        $this->dispatchToAgentQueue($campaign);
+
+        return response()->json(['message' => 'Ajanlara iletildi.']);
     }
 
     // Kullanıcının kendi görsel/videolarını kampanyaya ekler (AI'nın yanında referans/gerçek materyal olarak)
@@ -194,6 +205,17 @@ class CampaignController extends Controller
     private function dispatchToAgentQueue(Campaign $campaign): void
     {
         try {
+            // Storage::url() tarayıcıya göre APP_URL kullanır (ör. localhost:8000);
+            // worker'ın app servisine erişeceği adres ortama göre değişir:
+            // docker-compose'da Docker içi ağ adı (app:8000), Render'da (worker
+            // aynı konteynerde çalıştığı için) 127.0.0.1 - bkz. INTERNAL_APP_URL.
+            $internalAppUrl = rtrim(env('INTERNAL_APP_URL', 'http://app:8000'), '/');
+            $imageUrls = $campaign->assets()
+                ->where('type', 'image')
+                ->get()
+                ->map(fn ($asset) => $internalAppUrl . '/storage/' . $asset->path)
+                ->values();
+
             Redis::rpush('adpulse_queue', json_encode([
                 'campaign_id' => $campaign->id,
                 'target_product' => $campaign->target_url_or_product,
@@ -205,6 +227,7 @@ class CampaignController extends Controller
                 'cta_preference' => $campaign->cta_preference,
                 'platforms' => $campaign->platforms,
                 'daily_budget' => (float) $campaign->daily_budget,
+                'reference_image_urls' => $imageUrls,
             ]));
         } catch (\Throwable $e) {
             // Kuyruk şu an ayakta değilse kampanya kaydı yine de oluşmuş olsun;

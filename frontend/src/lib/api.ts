@@ -81,6 +81,8 @@ export const campaignsApi = {
     }
     return response.json() as Promise<{ data: CampaignAsset[] }>;
   },
+  // Kampanya oluşturulduktan (ve varsa görseller yüklendikten) sonra ajan zincirini başlatır
+  start: (id: string) => fetchAPI<{ message: string }>(`/campaigns/${id}/start`, { method: 'POST' }),
 };
 
 // İstatistik İstekleri
