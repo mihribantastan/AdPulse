@@ -23,7 +23,8 @@ class Campaign extends Model
         'daily_budget',
         'approval_status',
         'ai_analysis_results',
-        'selected_creative_index',
+        'selected_copy_index',
+        'selected_image_index',
         'google_ads_status',
         'google_ads_campaign_id',
         'google_ads_error',
@@ -34,7 +35,8 @@ class Campaign extends Model
         'platforms' => 'array',
         'ai_analysis_results' => 'array',
         'daily_budget' => 'decimal:2',
-        'selected_creative_index' => 'integer',
+        'selected_copy_index' => 'integer',
+        'selected_image_index' => 'integer',
     ];
 
     public function user()

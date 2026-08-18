@@ -134,26 +134,40 @@ class CampaignController extends Controller
         ], 201);
     }
 
-    // Kullanıcı, ajanın ürettiği 3 reklamdan birini seçip onaylar; bu seçimi
-    // gerçek Google Ads API çağrısıyla test hesabında yayınlamak üzere kuyruğa atar
+    // Kullanıcı reklam metnini ve görselini ayrı ayrı seçip onaylar (farklı
+    // kreatiflerden bile olabilir); bu seçimi gerçek Google Ads API çağrısıyla
+    // test hesabında yayınlamak üzere kuyruğa atar
     public function approve(Request $request, Campaign $campaign)
     {
         $this->authorizeOwner($request, $campaign);
 
         $creatives = $campaign->ai_analysis_results['creatives'] ?? [];
+        $maxIndex = max(count($creatives) - 1, 0);
 
         $validated = $request->validate([
-            'selected_creative_index' => ['required', 'integer', 'min:0', 'max:' . max(count($creatives) - 1, 0)],
+            'selected_copy_index' => ['required', 'integer', 'min:0', 'max:' . $maxIndex],
+            'selected_image_index' => ['required', 'integer', 'min:0', 'max:' . $maxIndex],
         ]);
 
         $campaign->update([
-            'selected_creative_index' => $validated['selected_creative_index'],
+            'selected_copy_index' => $validated['selected_copy_index'],
+            'selected_image_index' => $validated['selected_image_index'],
             'approval_status' => 'approved',
             'google_ads_status' => 'publishing',
             'google_ads_error' => null,
         ]);
 
-        $this->dispatchToPublishQueue($campaign, $creatives[$validated['selected_creative_index']]);
+        // Metin ve görsel farklı kreatiflerden seçilmiş olabilir - yayına giden
+        // "seçilen reklam" ikisini birleştiren melez bir obje.
+        $selectedCopy = $creatives[$validated['selected_copy_index']];
+        $selectedImage = $creatives[$validated['selected_image_index']];
+        $mergedCreative = [
+            'target_audience' => $selectedCopy['target_audience'] ?? null,
+            'ad_copy' => $selectedCopy['ad_copy'] ?? null,
+            'generated_image_url' => $selectedImage['generated_image_url'] ?? null,
+        ];
+
+        $this->dispatchToPublishQueue($campaign, $mergedCreative);
 
         return response()->json([
             'message' => 'Reklam seçildi, kampanya onaylandı ve Google Ads\'e gönderiliyor.',

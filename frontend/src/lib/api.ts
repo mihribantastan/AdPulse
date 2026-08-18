@@ -63,9 +63,9 @@ export const authApi = {
 export const campaignsApi = {
   list: () => fetchAPI<Campaign[]>('/campaigns'),
   get: (id: string) => fetchAPI<Campaign>(`/campaigns/${id}`),
-  approve: (id: string, selectedCreativeIndex: number) => fetchAPI<{ data: Campaign }>(`/campaigns/${id}/approve`, {
+  approve: (id: string, selectedCopyIndex: number, selectedImageIndex: number) => fetchAPI<{ data: Campaign }>(`/campaigns/${id}/approve`, {
     method: 'POST',
-    body: JSON.stringify({ selected_creative_index: selectedCreativeIndex }),
+    body: JSON.stringify({ selected_copy_index: selectedCopyIndex, selected_image_index: selectedImageIndex }),
   }),
   create: (data: Partial<Campaign>) => fetchAPI<{ message: string; data: Campaign }>('/campaigns', {
     method: 'POST',

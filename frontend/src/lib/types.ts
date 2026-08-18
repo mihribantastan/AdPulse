@@ -88,7 +88,8 @@ export type Campaign = {
   daily_budget: number;
   approval_status: ApprovalStatus;
   ai_analysis_results?: AiAnalysisResults | null;
-  selected_creative_index?: number | null;
+  selected_copy_index?: number | null;
+  selected_image_index?: number | null;
   google_ads_status?: GoogleAdsStatus | null;
   google_ads_campaign_id?: string | null;
   google_ads_error?: string | null;

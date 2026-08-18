@@ -212,10 +212,21 @@ def creative_agent(state: CampaignState):
         ("user", "{context}\n\nStrateji Brief'i: {brief}"),
     ])
     chain = prompt | llm
-    response = chain.invoke({"context": context, "brief": strategy_brief, "category_guidance": category_guidance})
 
-    match = re.search(r'\[.*\]', response.content, re.DOTALL)
-    creatives_list = json.loads(match.group(0)) if match else []
+    # LLM'e "3 farklı hedef kitle" dedik ama bu bir zorunluluk değil, bir istek -
+    # bazen 1-2 tanesini döndürüyor. Kullanıcı en az 3 metin/görsel arasından
+    # seçebilmeli, o yüzden eksik dönerse birkaç kez daha deneyip tamamlıyoruz.
+    creatives_list = []
+    for attempt in range(3):
+        response = chain.invoke({"context": context, "brief": strategy_brief, "category_guidance": category_guidance})
+        match = re.search(r'\[.*\]', response.content, re.DOTALL)
+        try:
+            creatives_list = json.loads(match.group(0)) if match else []
+        except json.JSONDecodeError:
+            creatives_list = []
+        if len(creatives_list) >= 3:
+            break
+        print(f"⚠️ [Creative Agent] Beklenen 3 yerine {len(creatives_list)} kreatif döndü (deneme {attempt + 1}/3), tekrar deneniyor...")
 
     # 2. AŞAMA: Her kreatif için ayrı görsel üretimi (kullanıcı üçünden birini seçebilsin diye).
     # Kullanıcı kendi ürün görseli yüklediyse (video değil - edit API görsel ister),
