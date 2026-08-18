@@ -23,7 +23,7 @@ class CampaignState(TypedDict):
     # Research Agent çıktısı: Creative Agent'ın prompt'unu ona göre özelleştirdiği ürün kategorisi
     product_category: Optional[str]
 
-    # Creative Agent çıktısı: [{"target_audience", "ad_copy", "image_prompt", "generated_image_url"}]
+    # Creative Agent çıktısı: [{"angle", "ad_copy", "image_prompt", "generated_image_url"}]
     creatives: Optional[List[Dict[str, str]]]
 
     # Media Agent çıktısı (insan onayından sonra devam eder)

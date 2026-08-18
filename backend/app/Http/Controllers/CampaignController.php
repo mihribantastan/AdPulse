@@ -162,7 +162,7 @@ class CampaignController extends Controller
         $selectedCopy = $creatives[$validated['selected_copy_index']];
         $selectedImage = $creatives[$validated['selected_image_index']];
         $mergedCreative = [
-            'target_audience' => $selectedCopy['target_audience'] ?? null,
+            'angle' => $selectedCopy['angle'] ?? null,
             'ad_copy' => $selectedCopy['ad_copy'] ?? null,
             'generated_image_url' => $selectedImage['generated_image_url'] ?? null,
         ];

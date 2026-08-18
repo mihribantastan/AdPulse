@@ -189,7 +189,11 @@ def creative_agent(state: CampaignState):
     prompt = ChatPromptTemplate.from_messages([
         ("system", "Sen ödüllü bir reklam yazarı ve sanat yönetmenisin. "
          "Sana verilen strateji brief'ine VE kullanıcının verdiği somut ürün bilgilerine dayanarak "
-         "3 farklı hedef kitle için tam kapsamlı reklam metinleri ve görsel promptları hazırla. "
+         "AYNI hedef kitleye yönelik 3 FARKLI REKLAM AÇISI (angle) ile 3 ayrı reklam metni ve görsel "
+         "promptu hazırla. Hedef kitleyi kullanıcının belirttiği/brief'teki şekilde SABİT tut - 3 farklı "
+         "kitle uydurma, sadece mesajın açısını/kancasını değiştir. Örneğin: biri somut özellik/fayda "
+         "vurgusu, biri duygusal/hikaye vurgusu, biri aciliyet/fırsat vurgusu gibi birbirinden belirgin "
+         "şekilde farklı açılardan yaklaşsın - üçü de aynı şeyi farklı kelimelerle söylemesin. "
          "ÖNEMLİ: ad_copy'lerde 'öne çıkan özellikler' varsa bunları GERÇEK ve SOMUT şekilde ("
          "genel geçer 'kaliteli', 'harika' gibi sıfatlar değil, verilen özelliklerin kendisi) kullan. "
          "Kullanıcının belirttiği marka tonuna (ör. samimi, lüks, eğlenceli, profesyonel) harfiyen uy "
@@ -205,9 +209,12 @@ def creative_agent(state: CampaignState):
          "image_prompt de jenerik stok-fotoğraf tarzında olmasın; ürünün/hizmetin somut özelliklerini ve "
          "istenen marka tonunu görsel olarak yansıtsın.\n"
          "{category_guidance}\n"
+         "Her varyasyon için kısa (2-4 kelime) bir 'angle' etiketi yaz - bu bir hedef kitle DEĞİL, "
+         "reklamın açısını/kancasını tanımlayan bir etiket olsun (ör. 'Fiyat Avantajı', 'Duygusal Bağ', "
+         "'Sınırlı Fırsat', 'Sosyal Kanıt').\n"
          "Çıktını SADECE JSON formatında bir dizi olarak ver:\n"
          '[\n'
-         '  {{"target_audience": "Kitle", "ad_copy": "Metin", "image_prompt": "English prompt"}}\n'
+         '  {{"angle": "Kısa açı etiketi", "ad_copy": "Metin", "image_prompt": "English prompt"}}\n'
          ']'),
         ("user", "{context}\n\nStrateji Brief'i: {brief}"),
     ])
@@ -238,7 +245,7 @@ def creative_agent(state: CampaignState):
 
     for creative in creatives_list:
         try:
-            print(f"🎨 [Creative Agent] Görsel üretiliyor: {creative.get('target_audience')}...")
+            print(f"🎨 [Creative Agent] Görsel üretiliyor: {creative.get('angle')}...")
             if reference_image:
                 reference_image.seek(0)
                 image_response = client.images.edit(
@@ -270,7 +277,7 @@ def creative_agent(state: CampaignState):
             else:
                 creative["generated_image_url"] = None
         except Exception as e:
-            print(f"⚠️ [Creative Agent] Görsel üretim hatası ({creative.get('target_audience')}): {e}")
+            print(f"⚠️ [Creative Agent] Görsel üretim hatası ({creative.get('angle')}): {e}")
             creative["generated_image_url"] = None
 
     print("🎨 [Creative Agent] Tüm metinler ve görseller hazır.")

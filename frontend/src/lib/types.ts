@@ -54,7 +54,9 @@ export const CTA_LABELS: Record<CtaPreference, string> = {
 };
 
 export type Creative = {
-  target_audience: string;
+  // Hedef kitle değil, reklamın açısı/kancası (ör. "Fiyat Avantajı", "Duygusal Bağ") -
+  // 3 varyasyon aynı kitleye yönelik, sadece mesajın açısı farklı.
+  angle: string;
   ad_copy: string;
   image_prompt?: string;
   generated_image_url?: string | null;

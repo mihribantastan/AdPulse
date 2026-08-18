@@ -172,7 +172,7 @@ export function CampaignDetail() {
                         } ${isApproved && !isActive ? 'opacity-40' : ''} ${isApproved ? 'cursor-default' : 'cursor-pointer'}`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-medium text-accent-400">{creative.target_audience}</p>
+                          <p className="text-xs font-medium text-accent-400">{creative.angle}</p>
                           {isActive && (
                             <span className="flex items-center gap-1 bg-accent-500 text-ink-950 text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0">
                               <Check size={10} strokeWidth={3} /> Seçili
@@ -209,14 +209,14 @@ export function CampaignDetail() {
                         } ${isApproved && !isActive ? 'opacity-40' : ''} ${!hasImage ? 'cursor-not-allowed' : isApproved ? 'cursor-default' : 'cursor-pointer'}`}
                       >
                         {hasImage ? (
-                          <img src={creative.generated_image_url!} alt={creative.target_audience} className="w-full h-full object-cover" />
+                          <img src={creative.generated_image_url!} alt={creative.angle} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full bg-glass/[0.04] flex items-center justify-center text-ink-400 text-xs">
                             Görsel yok
                           </div>
                         )}
                         <span className="absolute bottom-2 left-2 text-[11px] font-medium text-white bg-black/50 backdrop-blur px-2 py-0.5 rounded-full">
-                          {creative.target_audience}
+                          {creative.angle}
                         </span>
                         {isActive && (
                           <span className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-accent-500 text-ink-950 text-[11px] font-semibold px-2 py-1 rounded-full">
