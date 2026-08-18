@@ -1,12 +1,35 @@
-import { Mail, User as UserIcon, Save, Hash } from 'lucide-react';
+import { useState } from 'react';
+import { Mail, User as UserIcon, Save, Hash, Check, AlertTriangle } from 'lucide-react';
 import { AppLayout } from '../components/layout/AppLayout';
 import { useAuth } from '../context/useAuth';
+import { authApi } from '../lib/api';
 
 const inputClass = 'w-full bg-glass/[0.03] border border-glass/10 rounded-lg py-2.5 pl-10 pr-4 text-sm outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/25 transition-colors text-ink-100';
 
 export function Profile() {
-  const { user } = useAuth();
+  // ProtectedRoute, user yüklenmeden bu sayfayı hiç render etmiyor - ilk değer olarak
+  // güvenle okunabilir; sonraki senkronizasyon için ayrı bir effect'e gerek yok.
+  const { user, refresh } = useAuth();
   const initials = user?.name?.slice(0, 2).toUpperCase() ?? 'AD';
+
+  const [name, setName] = useState(user?.name ?? '');
+  const [email, setEmail] = useState(user?.email ?? '');
+  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    setStatus('saving');
+    setError(null);
+    try {
+      await authApi.update({ name, email });
+      await refresh();
+      setStatus('saved');
+      setTimeout(() => setStatus('idle'), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Kaydedilemedi.');
+      setStatus('error');
+    }
+  };
 
   return (
     <AppLayout title="Profilim" subtitle="Kimliğiniz ve hesap bilgileriniz.">
@@ -42,21 +65,36 @@ export function Profile() {
               <label className="block text-xs font-medium text-ink-400">Ad Soyad</label>
               <div className="relative flex items-center">
                 <UserIcon className="absolute left-3.5 text-ink-400" size={16} />
-                <input defaultValue={user?.name || ''} className={inputClass} />
+                <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
               </div>
             </div>
             <div className="space-y-1.5">
               <label className="block text-xs font-medium text-ink-400">E-posta Adresi</label>
               <div className="relative flex items-center">
                 <Mail className="absolute left-3.5 text-ink-400" size={16} />
-                <input defaultValue={user?.email || ''} className={inputClass} />
+                <input value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end">
-            <button className="flex items-center gap-2 bg-accent-500 text-ink-950 px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-accent-400 transition-colors shadow-[0_0_16px_rgba(51,194,232,0.25)]">
-              <Save size={16} /> Değişiklikleri Kaydet
+          {status === 'error' && error && (
+            <div className="flex items-center gap-2 text-sm text-rose-400 mb-4">
+              <AlertTriangle size={15} /> {error}
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-3">
+            {status === 'saved' && (
+              <span className="flex items-center gap-1.5 text-sm text-emerald-400">
+                <Check size={15} /> Kaydedildi
+              </span>
+            )}
+            <button
+              onClick={save}
+              disabled={status === 'saving' || !name || !email}
+              className="flex items-center gap-2 bg-accent-500 text-ink-950 px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-accent-400 transition-colors shadow-[0_0_16px_rgba(51,194,232,0.25)] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Save size={16} /> {status === 'saving' ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
             </button>
           </div>
         </div>

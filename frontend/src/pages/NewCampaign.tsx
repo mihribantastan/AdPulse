@@ -1,6 +1,6 @@
 import { useState, type SubmitEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Target, Users, Wallet, Layers, Sparkles, MessageSquarePlus, Goal, MousePointerClick, ImagePlus, X, Film } from 'lucide-react';
+import { ArrowRight, Target, Users, Wallet, Layers, Sparkles, MessageSquarePlus, Goal, MousePointerClick, ImagePlus, X, Film, AlertTriangle } from 'lucide-react';
 import { AppLayout } from '../components/layout/AppLayout';
 import { PlatformBadge } from '../components/PlatformBadge';
 import { campaignsApi } from '../lib/api';
@@ -32,6 +32,7 @@ export function NewCampaign() {
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const togglePlatform = (p: Platform) => {
@@ -52,6 +53,7 @@ export function NewCampaign() {
     e.preventDefault();
     if (!product || platforms.length === 0 || !budget) return;
     setSubmitting(true);
+    setError(null);
     try {
       const { data: campaign } = await campaignsApi.create({
         target_url_or_product: product,
@@ -70,8 +72,8 @@ export function NewCampaign() {
       // Ajanları görseller (varsa) diskte hazır olduktan sonra tetikliyoruz
       await campaignsApi.start(campaign.id);
       navigate('/app/campaigns');
-    } catch {
-      navigate('/app/campaigns');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Kampanya oluşturulamadı.');
     } finally {
       setSubmitting(false);
     }
@@ -266,6 +268,11 @@ export function NewCampaign() {
         </div>
 
         {/* Aksiyon */}
+        {error && (
+          <div className="flex items-center gap-2 text-sm text-rose-400 bg-rose-500/5 border border-rose-500/20 rounded-lg px-4 py-3">
+            <AlertTriangle size={16} className="shrink-0" /> {error}
+          </div>
+        )}
         <div className="flex justify-end">
           <button
             type="submit"

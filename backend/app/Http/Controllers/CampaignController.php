@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
+use Illuminate\Validation\ValidationException;
 use App\Domains\Campaign\Models\Campaign;
 use App\Domains\Campaign\Models\CampaignAsset;
 
@@ -56,6 +57,15 @@ class CampaignController extends Controller
             'platforms' => 'required|array|min:1',
             'daily_budget' => 'required|numeric|min:1',
         ]);
+
+        // Kullanıcı Ayarlar'dan bir üst sınır belirlediyse (AI Bütçe Koruması), aşan
+        // kampanyalar AI tarafından işleme alınmadan reddedilir.
+        $budgetLimit = $request->user()->daily_budget_limit;
+        if ($budgetLimit !== null && $validated['daily_budget'] > $budgetLimit) {
+            throw ValidationException::withMessages([
+                'daily_budget' => ["Günlük bütçe, Ayarlar'da belirlediğiniz maksimum limiti (₺{$budgetLimit}) aşıyor."],
+            ]);
+        }
 
         // 1. Kampanyayı veritabanına "pending" (bekliyor) olarak kaydet
         $campaign = Campaign::create([

@@ -1,10 +1,34 @@
-import { ShieldAlert, Link2, Sparkles, AlertTriangle, FileText } from 'lucide-react';
+import { useState } from 'react';
+import { ShieldAlert, Link2, Sparkles, AlertTriangle, FileText, Save, Check } from 'lucide-react';
 import { AppLayout } from '../components/layout/AppLayout';
 import { Toggle } from '../components/Toggle';
 import { useReportPreferences } from '../hooks/useReportPreferences';
+import { useAuth } from '../context/useAuth';
+import { authApi } from '../lib/api';
 
 export function Settings() {
   const { prefs, update } = useReportPreferences();
+  // ProtectedRoute, user yüklenmeden bu sayfayı hiç render etmiyor - ilk değer olarak
+  // güvenle okunabilir; sonraki senkronizasyon için ayrı bir effect'e gerek yok.
+  const { user, refresh } = useAuth();
+
+  const [budgetLimit, setBudgetLimit] = useState(user?.daily_budget_limit != null ? String(user.daily_budget_limit) : '');
+  const [budgetStatus, setBudgetStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [budgetError, setBudgetError] = useState<string | null>(null);
+
+  const saveBudgetLimit = async () => {
+    setBudgetStatus('saving');
+    setBudgetError(null);
+    try {
+      await authApi.update({ daily_budget_limit: budgetLimit === '' ? null : Number(budgetLimit) });
+      await refresh();
+      setBudgetStatus('saved');
+      setTimeout(() => setBudgetStatus('idle'), 2500);
+    } catch (err) {
+      setBudgetError(err instanceof Error ? err.message : 'Kaydedilemedi.');
+      setBudgetStatus('error');
+    }
+  };
 
   return (
     <AppLayout title="Sistem Ayarları" subtitle="AI platform bağlantılarınızı ve güvenlik sınırlarınızı yönetin.">
@@ -29,17 +53,39 @@ export function Settings() {
             </p>
           </div>
 
-          <div className="space-y-1.5 max-w-xs">
-            <label className="block text-xs font-medium text-ink-400">Maksimum Günlük Limit (₺)</label>
-            <div className="relative flex items-center">
-              <span className="absolute left-4 text-ink-400 font-medium text-sm">₺</span>
-              <input
-                defaultValue="5000"
-                type="number"
-                className="w-full bg-glass/[0.03] border border-glass/10 rounded-lg py-2.5 pl-8 pr-4 text-sm font-medium outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/25 transition-colors text-ink-100"
-              />
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1.5 max-w-xs">
+              <label className="block text-xs font-medium text-ink-400">Maksimum Günlük Limit (₺)</label>
+              <div className="relative flex items-center">
+                <span className="absolute left-4 text-ink-400 font-medium text-sm">₺</span>
+                <input
+                  value={budgetLimit}
+                  onChange={(e) => setBudgetLimit(e.target.value)}
+                  type="number"
+                  min="0"
+                  placeholder="Sınırsız"
+                  className="w-full bg-glass/[0.03] border border-glass/10 rounded-lg py-2.5 pl-8 pr-4 text-sm font-medium outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/25 transition-colors text-ink-100"
+                />
+              </div>
             </div>
+            <button
+              onClick={saveBudgetLimit}
+              disabled={budgetStatus === 'saving'}
+              className="flex items-center gap-2 bg-rose-500 text-white px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-rose-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Save size={16} /> {budgetStatus === 'saving' ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
+            </button>
+            {budgetStatus === 'saved' && (
+              <span className="flex items-center gap-1.5 text-sm text-emerald-400 pb-2.5">
+                <Check size={15} /> Kaydedildi
+              </span>
+            )}
           </div>
+          {budgetStatus === 'error' && budgetError && (
+            <div className="flex items-center gap-2 text-sm text-rose-400 mt-3">
+              <AlertTriangle size={15} /> {budgetError}
+            </div>
+          )}
         </div>
 
         {/* Rapor Tercihleri */}

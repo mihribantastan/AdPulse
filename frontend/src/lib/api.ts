@@ -32,7 +32,10 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
 
   if (!response.ok) {
     const body = await response.json().catch(() => null);
-    throw new Error(body?.message || `API Hatası: ${response.status} ${response.statusText}`);
+    // Laravel validasyon hatası: {message, errors: {alan: [mesaj, ...]}} - alana özel
+    // mesaj varsa (ör. bütçe limiti aşıldı) genel "geçersiz veri" mesajı yerine onu göster.
+    const firstFieldError = body?.errors ? (Object.values(body.errors)[0] as string[] | undefined)?.[0] : undefined;
+    throw new Error(firstFieldError || body?.message || `API Hatası: ${response.status} ${response.statusText}`);
   }
   return response.json();
 }
@@ -51,6 +54,8 @@ export const authApi = {
     }),
   logout: () => fetchAPI<{ message: string }>('/logout', { method: 'POST' }),
   me: () => fetchAPI<AuthUser>('/user'),
+  update: (data: Partial<Pick<AuthUser, 'name' | 'email' | 'daily_budget_limit'>>) =>
+    fetchAPI<AuthUser>('/user', { method: 'PATCH', body: JSON.stringify(data) }),
   googleLoginUrl: () => `${API_URL}/auth/google/redirect`,
 };
 

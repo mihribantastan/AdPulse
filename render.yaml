@@ -5,6 +5,7 @@ services:
     dockerfilePath: ./Dockerfile.render
     dockerContext: .
     plan: free
+    region: frankfurt
     healthCheckPath: /api/health
     envVars:
       - key: APP_NAME

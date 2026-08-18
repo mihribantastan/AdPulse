@@ -63,6 +63,23 @@ class AuthController extends Controller
         return response()->json($request->user());
     }
 
+    // Profil (Profilim) ve hesap güvenlik ayarları (Ayarlar > AI Bütçe Koruması)
+    // aynı kullanıcı kaydını günceller; her alan opsiyonel, sadece gönderilenler değişir.
+    public function update(Request $request)
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $user->id,
+            'daily_budget_limit' => 'sometimes|nullable|numeric|min:0',
+        ]);
+
+        $user->update($validated);
+
+        return response()->json($user->fresh());
+    }
+
     // Tarayıcıyı doğrudan Google'ın onay ekranına yönlendirir
     public function googleRedirect()
     {
