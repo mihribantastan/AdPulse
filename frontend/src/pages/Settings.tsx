@@ -1,10 +1,17 @@
-import { useState } from 'react';
-import { ShieldAlert, Link2, Sparkles, AlertTriangle, FileText, Save, Check } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { ShieldAlert, Link2, AlertTriangle, FileText, Save, Check, Loader2, Unlink } from 'lucide-react';
 import { AppLayout } from '../components/layout/AppLayout';
 import { Toggle } from '../components/Toggle';
 import { useReportPreferences } from '../hooks/useReportPreferences';
 import { useAuth } from '../context/useAuth';
-import { authApi } from '../lib/api';
+import { authApi, integrationsApi } from '../lib/api';
+import type { ConnectablePlatform, PlatformConnection } from '../lib/types';
+
+const CONNECTABLE_PLATFORM_LABELS: Record<ConnectablePlatform, string> = {
+  google_ads: 'Google Ads',
+  meta: 'Meta (Facebook/Instagram)',
+};
 
 export function Settings() {
   const { prefs, update } = useReportPreferences();
@@ -15,6 +22,40 @@ export function Settings() {
   const [budgetLimit, setBudgetLimit] = useState(user?.daily_budget_limit != null ? String(user.daily_budget_limit) : '');
   const [budgetStatus, setBudgetStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [budgetError, setBudgetError] = useState<string | null>(null);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [connections, setConnections] = useState<PlatformConnection[] | null>(null);
+  const [connectingPlatform, setConnectingPlatform] = useState<ConnectablePlatform | null>(null);
+
+  const loadConnections = () => {
+    integrationsApi.list().then(setConnections).catch(() => setConnections([]));
+  };
+
+  useEffect(() => {
+    loadConnections();
+  }, []);
+
+  // OAuth callback'ten dönüldüğünde (?connected=google_ads veya ?integration_error=meta)
+  // listeyi tazele ve query param'ı temizle - sayfa yenilenince tekrar görünmesin.
+  useEffect(() => {
+    if (searchParams.has('connected') || searchParams.has('integration_error')) {
+      loadConnections();
+      setSearchParams({}, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  const connectPlatform = (platform: ConnectablePlatform) => {
+    setConnectingPlatform(platform);
+    integrationsApi.redirect(platform)
+      .then(({ url }) => { window.location.href = url; })
+      .catch(() => setConnectingPlatform(null));
+  };
+
+  const disconnectPlatform = async (platform: ConnectablePlatform) => {
+    await integrationsApi.disconnect(platform);
+    loadConnections();
+  };
 
   const saveBudgetLimit = async () => {
     setBudgetStatus('saving');
@@ -130,19 +171,49 @@ export function Settings() {
             </div>
             <div>
               <h3 className="font-display text-base text-ink-100">Ağ Bağlantıları</h3>
-              <p className="text-sm text-ink-400 mt-0.5">Dış platform entegrasyonları.</p>
+              <p className="text-sm text-ink-400 mt-0.5">Kampanyalar KENDİ hesabında yayınlansın diye Google Ads ve Meta hesaplarını bağla. Ham API anahtarı hiçbir sistemde saklanmaz, sadece OAuth token'ı şifreli tutulur.</p>
             </div>
           </div>
 
-          <div className="bg-glass/[0.02] border border-dashed border-glass/15 p-8 rounded-xl text-center">
-            <div className="w-12 h-12 bg-glass/[0.04] rounded-full flex items-center justify-center mx-auto mb-3 border border-glass/10">
-              <Sparkles size={20} className="text-ink-400" />
+          {connections === null ? (
+            <div className="flex items-center gap-2 text-sm text-ink-400 py-4">
+              <Loader2 size={16} className="animate-spin" /> Yükleniyor...
             </div>
-            <h4 className="text-sm font-semibold text-ink-100 mb-1.5">Entegrasyonlar Hazırlanıyor</h4>
-            <p className="text-sm text-ink-400 max-w-lg mx-auto leading-relaxed">
-              Google Ads ve Meta hesap bağlantıları OAuth2 protokolü ile güvenlik altına alınmaktadır. Ham API anahtarı hiçbir sistemde saklanmaz. Bağlantı ekranı, <strong className="font-medium text-ink-100">Domains/Integration</strong> katmanı tamamlandığında aktif edilecektir.
-            </p>
-          </div>
+          ) : (
+            <div className="divide-y divide-glass/10">
+              {(['google_ads', 'meta'] as ConnectablePlatform[]).map((platform) => {
+                const connection = connections.find((c) => c.platform === platform);
+                return (
+                  <div key={platform} className="flex items-center justify-between gap-4 py-4">
+                    <div>
+                      <p className="text-sm font-medium text-ink-100">{CONNECTABLE_PLATFORM_LABELS[platform]}</p>
+                      <p className="text-xs text-ink-400 mt-0.5">
+                        {connection
+                          ? `Bağlı: ${connection.external_account_name ?? connection.external_account_id}`
+                          : 'Bağlı değil'}
+                      </p>
+                    </div>
+                    {connection ? (
+                      <button
+                        onClick={() => disconnectPlatform(platform)}
+                        className="flex items-center gap-1.5 text-xs font-medium text-rose-400 hover:underline shrink-0"
+                      >
+                        <Unlink size={13} /> Bağlantıyı Kaldır
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => connectPlatform(platform)}
+                        disabled={connectingPlatform === platform}
+                        className="flex items-center gap-2 bg-accent-500 text-ink-950 px-4 py-2 rounded-lg font-semibold text-xs hover:bg-accent-400 transition-colors disabled:opacity-50 shrink-0"
+                      >
+                        {connectingPlatform === platform ? 'Yönlendiriliyor...' : `${CONNECTABLE_PLATFORM_LABELS[platform]}'e Bağlan`}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
       </div>

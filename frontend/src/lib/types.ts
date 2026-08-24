@@ -136,3 +136,13 @@ export type CampaignMetricsSummary = {
   has_performance_data: boolean;
 };
 export type CampaignTimeseriesPoint = { date: string; clicks: number; spend: number; impressions: number; revenue: number };
+
+export type ConnectablePlatform = 'google_ads' | 'meta';
+
+export type PlatformConnection = {
+  id: number;
+  platform: ConnectablePlatform;
+  external_account_id: string | null;
+  external_account_name: string | null;
+  created_at: string;
+};

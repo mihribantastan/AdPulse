@@ -44,7 +44,8 @@ def _load_image_bytes(generated_image_url: str) -> bytes | None:
 
 
 def publish_to_meta(payload: dict) -> dict:
-    """payload: campaign_id, target_url_or_product, daily_budget, selected_creative, platforms.
+    """payload: campaign_id, target_url_or_product, daily_budget, selected_creative, platforms,
+    meta_credentials {access_token, ad_account_id, page_id}.
     Dönüş: {"success": bool, "campaign_id": str|None, "error": str|None}"""
     import os
 
@@ -54,6 +55,7 @@ def publish_to_meta(payload: dict) -> dict:
     creative = payload.get("selected_creative") or {}
     ad_copy = creative.get("ad_copy") or target_product
     platforms = payload.get("platforms") or []
+    credentials = payload.get("meta_credentials") or {}
 
     if not _looks_like_url(target_product):
         return {
@@ -74,12 +76,29 @@ def publish_to_meta(payload: dict) -> dict:
             "error": "Meta (Facebook/Instagram) reklamları görsel gerektirir; seçilen kreatifin görseli yok.",
         }
 
+    if not credentials.get("access_token") or not credentials.get("ad_account_id"):
+        return {
+            "success": False,
+            "campaign_id": None,
+            "error": "Meta hesabı bağlı değil. Lütfen Ayarlar'dan Meta hesabını bağla.",
+        }
+
     try:
+        # app_id/app_secret uygulamaya ait paylaşılan sırlar (Meta for Developers'daki
+        # App); access_token/ad_account_id/page_id ise kampanyayı onaylayan
+        # KULLANICIYA ait - Ayarlar'dan bağladığı kendi Meta hesabından geliyor.
         app_id = os.environ["META_APP_ID"]
         app_secret = os.environ["META_APP_SECRET"]
-        access_token = os.environ["META_ACCESS_TOKEN"]
-        ad_account_id = os.environ["META_AD_ACCOUNT_ID"]
-        page_id = os.environ["META_PAGE_ID"]
+        access_token = credentials["access_token"]
+        ad_account_id = credentials["ad_account_id"]
+        page_id = credentials.get("page_id")
+
+        if not page_id:
+            return {
+                "success": False,
+                "campaign_id": None,
+                "error": "Bağlı Meta hesabına ait bir Facebook Sayfası bulunamadı; reklam bir Sayfa'ya bağlı olmak zorunda.",
+            }
 
         FacebookAdsApi.init(app_id, app_secret, access_token)
         account = AdAccount(ad_account_id)

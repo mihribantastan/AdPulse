@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Domains\Integration\Models\PlatformConnection;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -30,5 +31,10 @@ class User extends Authenticatable
             'password' => 'hashed',
             'daily_budget_limit' => 'float',
         ];
+    }
+
+    public function platformConnections()
+    {
+        return $this->hasMany(PlatformConnection::class);
     }
 }

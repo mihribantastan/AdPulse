@@ -1,5 +1,5 @@
 import type { AuthUser } from '../context/auth-context';
-import type { Campaign, CampaignAsset, CampaignMetricsSummary, CampaignTimeseriesPoint, DashboardSummary, PlatformBreakdownPoint, TimeseriesPoint } from './types';
+import type { Campaign, CampaignAsset, CampaignMetricsSummary, CampaignTimeseriesPoint, ConnectablePlatform, DashboardSummary, PlatformBreakdownPoint, PlatformConnection, TimeseriesPoint } from './types';
 
 // .env dosyasındaki adresi çeker
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -88,6 +88,13 @@ export const campaignsApi = {
   },
   // Kampanya oluşturulduktan (ve varsa görseller yüklendikten) sonra ajan zincirini başlatır
   start: (id: string) => fetchAPI<{ message: string }>(`/campaigns/${id}/start`, { method: 'POST' }),
+};
+
+// Kullanıcının kendi Google Ads / Meta hesabını bağlaması
+export const integrationsApi = {
+  list: () => fetchAPI<PlatformConnection[]>('/integrations'),
+  redirect: (platform: ConnectablePlatform) => fetchAPI<{ url: string }>(`/integrations/${platform}/redirect`),
+  disconnect: (platform: ConnectablePlatform) => fetchAPI<{ message: string }>(`/integrations/${platform}`, { method: 'DELETE' }),
 };
 
 // İstatistik İstekleri

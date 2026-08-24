@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Redis;
 use Illuminate\Validation\ValidationException;
 use App\Domains\Campaign\Models\Campaign;
 use App\Domains\Campaign\Models\CampaignAsset;
+use App\Domains\Integration\Models\PlatformConnection;
 
 class CampaignController extends Controller
 {
@@ -152,6 +153,26 @@ class CampaignController extends Controller
         $wantsGoogle = in_array('google_ads', $campaign->platforms ?? [], true);
         $wantsMeta = !empty(array_intersect(['instagram', 'facebook'], $campaign->platforms ?? []));
 
+        $googleConnection = $wantsGoogle
+            ? PlatformConnection::where('user_id', $campaign->user_id)->where('platform', 'google_ads')->first()
+            : null;
+        $metaConnection = $wantsMeta
+            ? PlatformConnection::where('user_id', $campaign->user_id)->where('platform', 'meta')->first()
+            : null;
+
+        // Kampanya yanlış platform seçilmiş görünse bile publish anında sessizce
+        // başarısız olmasın diye, kuyruğa göndermeden ÖNCE bağlantı zorunluluğunu kontrol ediyoruz.
+        if ($wantsGoogle && !$googleConnection) {
+            throw ValidationException::withMessages([
+                'platforms' => ["Google Ads'e yayınlamak için önce Ayarlar'dan Google Ads hesabını bağlamalısın."],
+            ]);
+        }
+        if ($wantsMeta && !$metaConnection) {
+            throw ValidationException::withMessages([
+                'platforms' => ["Meta'ya (Facebook/Instagram) yayınlamak için önce Ayarlar'dan Meta hesabını bağlamalısın."],
+            ]);
+        }
+
         $campaign->update([
             'selected_copy_index' => $validated['selected_copy_index'],
             'selected_image_index' => $validated['selected_image_index'],
@@ -172,7 +193,7 @@ class CampaignController extends Controller
             'generated_image_url' => $selectedImage['generated_image_url'] ?? null,
         ];
 
-        $this->dispatchToPublishQueue($campaign, $mergedCreative);
+        $this->dispatchToPublishQueue($campaign, $mergedCreative, $googleConnection, $metaConnection);
 
         return response()->json([
             'message' => 'Reklam seçildi, kampanya onaylandı ve seçili platformlara gönderiliyor.',
@@ -272,10 +293,14 @@ class CampaignController extends Controller
     }
 
     // ai_layer/queue_worker.py'nin dinlediği "adpulse_publish_queue" listesine seçilen
-    // reklamı iter; worker "platforms"a göre Google Ads ve/veya Meta'ya gerçek API
-    // çağrısıyla test hesabında yayınlar
-    private function dispatchToPublishQueue(Campaign $campaign, array $selectedCreative): void
-    {
+    // reklamı iter; worker "platforms"a göre Google Ads ve/veya Meta'ya, kampanya
+    // sahibinin KENDİ bağlı hesabı üzerinden gerçek API çağrısıyla yayınlar
+    private function dispatchToPublishQueue(
+        Campaign $campaign,
+        array $selectedCreative,
+        ?PlatformConnection $googleConnection,
+        ?PlatformConnection $metaConnection,
+    ): void {
         try {
             Redis::rpush('adpulse_publish_queue', json_encode([
                 'campaign_id' => $campaign->id,
@@ -284,6 +309,16 @@ class CampaignController extends Controller
                 'strategy_brief' => $campaign->ai_analysis_results['strategy_brief'] ?? null,
                 'selected_creative' => $selectedCreative,
                 'platforms' => $campaign->platforms,
+                'google_ads_credentials' => $googleConnection ? [
+                    'refresh_token' => $googleConnection->refresh_token,
+                    'customer_id' => $googleConnection->external_account_id,
+                    'login_customer_id' => $googleConnection->extra['login_customer_id'] ?? null,
+                ] : null,
+                'meta_credentials' => $metaConnection ? [
+                    'access_token' => $metaConnection->access_token,
+                    'ad_account_id' => $metaConnection->external_account_id,
+                    'page_id' => $metaConnection->extra['page_id'] ?? null,
+                ] : null,
             ]));
         } catch (\Throwable $e) {
             $errorMessage = 'Yayın kuyruğuna gönderilemedi: ' . $e->getMessage();

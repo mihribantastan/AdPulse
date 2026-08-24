@@ -69,21 +69,27 @@ def _generate_rsa_assets(ad_copy: str, target_product: str, strategy_brief: str 
     return {"headlines": headlines, "descriptions": descriptions}
 
 
-def _load_client() -> GoogleAdsClient:
+def _load_client(refresh_token: str, login_customer_id: str | None) -> GoogleAdsClient:
+    """client_id/client_secret/developer_token uygulamaya ait paylaşılan sırlar
+    (Google Cloud'daki OAuth client + Ads geliştirici token'ı); refresh_token ve
+    login_customer_id ise kampanyayı onaylayan KULLANICIYA ait - Ayarlar'dan
+    bağladığı kendi Google Ads hesabından geliyor (bkz. PlatformConnectionController)."""
     import os
     config = {
         "developer_token": os.environ["GOOGLE_ADS_DEVELOPER_TOKEN"],
         "client_id": os.environ["GOOGLE_ADS_CLIENT_ID"],
         "client_secret": os.environ["GOOGLE_ADS_CLIENT_SECRET"],
-        "refresh_token": os.environ["GOOGLE_ADS_REFRESH_TOKEN"],
-        "login_customer_id": os.environ["GOOGLE_ADS_LOGIN_CUSTOMER_ID"],
+        "refresh_token": refresh_token,
         "use_proto_plus": True,
     }
+    if login_customer_id:
+        config["login_customer_id"] = login_customer_id
     return GoogleAdsClient.load_from_dict(config)
 
 
 def publish_campaign(payload: dict) -> dict:
-    """payload: campaign_id, target_url_or_product, daily_budget, strategy_brief, selected_creative.
+    """payload: campaign_id, target_url_or_product, daily_budget, strategy_brief,
+    selected_creative, google_ads_credentials {refresh_token, customer_id, login_customer_id}.
     Dönüş: {"success": bool, "campaign_id": str|None, "error": str|None}"""
     campaign_id = payload.get("campaign_id")
     target_product = payload.get("target_url_or_product") or ""
@@ -91,6 +97,7 @@ def publish_campaign(payload: dict) -> dict:
     strategy_brief = payload.get("strategy_brief")
     creative = payload.get("selected_creative") or {}
     ad_copy = creative.get("ad_copy") or target_product
+    credentials = payload.get("google_ads_credentials") or {}
 
     if not _looks_like_url(target_product):
         return {
@@ -103,10 +110,16 @@ def publish_campaign(payload: dict) -> dict:
             ),
         }
 
+    if not credentials.get("refresh_token") or not credentials.get("customer_id"):
+        return {
+            "success": False,
+            "campaign_id": None,
+            "error": "Google Ads hesabı bağlı değil. Lütfen Ayarlar'dan Google Ads hesabını bağla.",
+        }
+
     try:
-        import os
-        client = _load_client()
-        customer_id = os.environ["GOOGLE_ADS_CUSTOMER_ID"]
+        client = _load_client(credentials["refresh_token"], credentials.get("login_customer_id"))
+        customer_id = credentials["customer_id"]
 
         assets = _generate_rsa_assets(ad_copy, target_product, strategy_brief)
 

@@ -41,4 +41,20 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    // Kullanıcının kendi Google Ads hesabını bağlaması için - ai_layer/'daki
+    // generate_refresh_token.py ile aynı, Ads API için ayrılmış OAuth client
+    // (girişte kullanılan 'google' client'ından farklı). Bu client'ın Google
+    // Cloud Console'daki "Authorized redirect URIs" listesine
+    // {APP_URL}/api/integrations/google-ads/callback eklenmesi gerekiyor.
+    'google_ads' => [
+        'client_id' => env('GOOGLE_ADS_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_ADS_CLIENT_SECRET'),
+        'developer_token' => env('GOOGLE_ADS_DEVELOPER_TOKEN'),
+    ],
+
+    'meta' => [
+        'client_id' => env('META_APP_ID'),
+        'client_secret' => env('META_APP_SECRET'),
+    ],
+
 ];

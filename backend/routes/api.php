@@ -5,6 +5,7 @@ use App\Domains\Campaign\Controllers\AgentCommunicationController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\MetricsController;
+use App\Http\Controllers\PlatformConnectionController;
 
 // Render health check (kimlik doğrulama gerektirmez)
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
@@ -32,6 +33,11 @@ Route::post('/agent/analyze', [AgentCommunicationController::class, 'analyzeData
 Route::post('/campaigns/complete', [CampaignController::class, 'complete']);
 Route::post('/campaigns/publish-complete', [CampaignController::class, 'publishComplete']);
 
+// Google/Meta kullanıcıyı OAuth onayından sonra doğrudan buraya döndürür - tarayıcı
+// navigasyonu Bearer token taşımadığı için bu route kimlik doğrulama dışında;
+// kimliği "state" parametresinden çözüyoruz (bkz. PlatformConnectionController).
+Route::get('/integrations/{platform}/callback', [PlatformConnectionController::class, 'callback']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/campaigns', [CampaignController::class, 'index']);
     Route::post('/campaigns', [CampaignController::class, 'store']);
@@ -48,4 +54,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/metrics/platform', [MetricsController::class, 'platform']);
     Route::get('/campaigns/{campaign}/metrics/summary', [MetricsController::class, 'campaignSummary']);
     Route::get('/campaigns/{campaign}/metrics/timeseries', [MetricsController::class, 'campaignTimeseries']);
+
+    // --------------------------------------------------------
+    // 3. KULLANICI BAZLI PLATFORM BAĞLANTILARI (Google Ads / Meta)
+    // --------------------------------------------------------
+    Route::get('/integrations', [PlatformConnectionController::class, 'index']);
+    Route::get('/integrations/{platform}/redirect', [PlatformConnectionController::class, 'redirect']);
+    Route::delete('/integrations/{platform}', [PlatformConnectionController::class, 'destroy']);
 });
