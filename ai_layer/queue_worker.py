@@ -93,6 +93,7 @@ def listen_for_campaigns():
                     "extra_notes": campaign_data.get("extra_notes"),
                     "campaign_goal": campaign_data.get("campaign_goal"),
                     "cta_preference": campaign_data.get("cta_preference"),
+                    "platforms": campaign_data.get("platforms") or [],
                     "daily_budget": float(campaign_data.get("daily_budget", 0)),
                     "reference_image_urls": campaign_data.get("reference_image_urls") or [],
                     "status": "pending"
@@ -104,22 +105,25 @@ def listen_for_campaigns():
                 thread_id = f"campaign_{initial_state['campaign_id']}_{int(time.time())}"
                 config = {"configurable": {"thread_id": thread_id}}
                 
-                # Ajanları çalıştır!
-                state_after_creative = app.invoke(initial_state, config)
-                
-                print(f"⏸️ Kampanya #{initial_state['campaign_id']} Media planlaması öncesi duraklatıldı!")
-                print("İnsan onayı bekleniyor... (Media Agent + gerçek Meta/Google Ads çağrıları onaydan sonra çalışacak)\n")
+                # Ajanları çalıştır (research → creative → media, hepsi tek seferde -
+                # hedefleme/bütçe dağılımı kararı onay öncesi verilebilecek bir şey,
+                # insan onayı bekleyen kısım sadece "hangi reklamı yayınlayalım")
+                final_state = app.invoke(initial_state, config)
+
+                print(f"✅ Kampanya #{initial_state['campaign_id']} için ajanlar tamamlandı, insan onayı bekleniyor...\n")
 
                 # ==========================================
-                # LARAVEL'E DÖNÜŞ KÖPRÜSÜ: research + creative sonuçları
+                # LARAVEL'E DÖNÜŞ KÖPRÜSÜ
                 # ==========================================
-                print("📦 Research ve Creative ajanları tamamlandı, sonuçlar Laravel'e gönderiliyor...")
+                print("📦 Sonuçlar Laravel'e gönderiliyor...")
 
                 payload = {
-                    "campaign_id": state_after_creative.get("campaign_id"),
+                    "campaign_id": final_state.get("campaign_id"),
                     "generated_content": {
-                        "strategy_brief": state_after_creative.get("strategy_brief"),
-                        "creatives": state_after_creative.get("creatives", []),
+                        "strategy_brief": final_state.get("strategy_brief"),
+                        "creatives": final_state.get("creatives", []),
+                        "targeting": final_state.get("targeting", {}),
+                        "budget": final_state.get("budget", {}),
                     },
                 }
                 

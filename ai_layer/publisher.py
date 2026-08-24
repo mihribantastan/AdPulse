@@ -21,6 +21,29 @@ def _looks_like_url(value: str) -> bool:
     return parsed.scheme in ("http", "https") and bool(parsed.netloc)
 
 
+_GOOGLE_AGE_BUCKETS = [
+    (18, 24, "AGE_RANGE_18_24"),
+    (25, 34, "AGE_RANGE_25_34"),
+    (35, 44, "AGE_RANGE_35_44"),
+    (45, 54, "AGE_RANGE_45_54"),
+    (55, 64, "AGE_RANGE_55_64"),
+    (65, 200, "AGE_RANGE_65_UP"),
+]
+
+
+def _age_range_to_google_buckets(age_range: str | None) -> list[str]:
+    """Google Ads yaş hedeflemesi sabit demet (bucket) kabul ediyor, serbest metin
+    aralık değil - Media Agent'ın ürettiği '25-45' gibi bir string'i bunu kapsayan
+    demetlere çeviriyoruz. Ayrıştırılamazsa boş döner (hedefleme atlanır, hata değil)."""
+    if not age_range:
+        return []
+    match = re.match(r"\s*(\d+)\s*-\s*(\d+)\s*", age_range)
+    if not match:
+        return []
+    low, high = int(match.group(1)), int(match.group(2))
+    return [name for bucket_low, bucket_high, name in _GOOGLE_AGE_BUCKETS if bucket_low <= high and bucket_high >= low]
+
+
 def _derive_keyword(target_product: str) -> str:
     """URL verilmişse alan adından, değilse ürün adından kısa bir anahtar kelime türetir."""
     if _looks_like_url(target_product):
@@ -123,8 +146,14 @@ def publish_campaign(payload: dict) -> dict:
 
         assets = _generate_rsa_assets(ad_copy, target_product, strategy_brief)
 
+        # Kampanya hem Google Ads hem Meta'ya birden yayınlanıyorsa, her ikisi de TAM
+        # günlük bütçeyi kullanırsa kullanıcının ayarladığından fazla harcama niyeti
+        # oluşur - Media Agent'ın belirlediği yüzdeye göre bu platformun payını al.
+        budget_share = (payload.get("budget_distribution") or {}).get("google_ads", 100)
+        effective_daily_budget = daily_budget * (float(budget_share) / 100)
+
         unique_suffix = f"{campaign_id}-{uuid.uuid4().hex[:8]}"
-        budget_micros = max(int(daily_budget * 1_000_000), 10_000_000)  # en az 10 birim/gün
+        budget_micros = max(int(effective_daily_budget * 1_000_000), 10_000_000)  # en az 10 birim/gün
 
         # 1. Kampanya Bütçesi
         budget_service = client.get_service("CampaignBudgetService")
@@ -184,6 +213,18 @@ def publish_campaign(payload: dict) -> dict:
         criterion_service.mutate_ad_group_criteria(
             customer_id=customer_id, operations=[criterion_operation]
         )
+
+        # 4b. Yaş Hedeflemesi (Media Agent bir yaş aralığı belirlediyse)
+        age_buckets = _age_range_to_google_buckets((payload.get("targeting") or {}).get("age_range"))
+        if age_buckets:
+            age_operations = []
+            for bucket_name in age_buckets:
+                age_operation = client.get_type("AdGroupCriterionOperation")
+                age_criterion = age_operation.create
+                age_criterion.ad_group = ad_group_resource_name
+                age_criterion.age_range.type_ = getattr(client.enums.AgeRangeTypeEnum, bucket_name)
+                age_operations.append(age_operation)
+            criterion_service.mutate_ad_group_criteria(customer_id=customer_id, operations=age_operations)
 
         # 5. Duyarlı Arama Ağı Reklamı (Responsive Search Ad)
         ad_group_ad_service = client.get_service("AdGroupAdService")

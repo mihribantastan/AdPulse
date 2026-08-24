@@ -147,6 +147,9 @@ export function CampaignDetail() {
           const isApproved = campaign.approval_status !== 'pending';
           const activeCopy = isApproved ? campaign.selected_copy_index ?? null : pickedCopy;
           const activeImage = isApproved ? campaign.selected_image_index ?? null : pickedImage;
+          // AI kreatiflerinden sonra kullanıcının kendi yüklediği görseller de seçilebilir -
+          // indeksleri creatives'in devamı (bkz. backend CampaignController::approve).
+          const ownImages = (campaign.assets ?? []).filter((a) => a.type === 'image');
 
           return (
             <div className="space-y-5">
@@ -217,6 +220,31 @@ export function CampaignDetail() {
                         )}
                         <span className="absolute bottom-2 left-2 text-[11px] font-medium text-white bg-black/50 backdrop-blur px-2 py-0.5 rounded-full">
                           {creative.angle}
+                        </span>
+                        {isActive && (
+                          <span className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-accent-500 text-ink-950 text-[11px] font-semibold px-2 py-1 rounded-full">
+                            <Check size={12} strokeWidth={2.5} /> Seçili
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                  {ownImages.map((asset, j) => {
+                    const i = results.creatives!.length + j;
+                    const isActive = activeImage === i;
+                    return (
+                      <button
+                        key={asset.id}
+                        type="button"
+                        disabled={isApproved}
+                        onClick={() => setPickedImage(i)}
+                        className={`relative rounded-2xl overflow-hidden border transition-colors aspect-square ${
+                          isActive ? 'border-accent-500 ring-1 ring-accent-500' : 'border-glass/10 hover:border-glass/20'
+                        } ${isApproved && !isActive ? 'opacity-40' : ''} ${isApproved ? 'cursor-default' : 'cursor-pointer'}`}
+                      >
+                        <img src={asset.url} alt={asset.original_name ?? 'Kendi görseliniz'} className="w-full h-full object-cover" />
+                        <span className="absolute bottom-2 left-2 text-[11px] font-medium text-white bg-black/50 backdrop-blur px-2 py-0.5 rounded-full">
+                          Kendi Görseliniz
                         </span>
                         {isActive && (
                           <span className="absolute top-2.5 right-2.5 flex items-center gap-1 bg-accent-500 text-ink-950 text-[11px] font-semibold px-2 py-1 rounded-full">

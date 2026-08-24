@@ -13,6 +13,10 @@ class CampaignState(TypedDict):
     campaign_goal: Optional[str]
     cta_preference: Optional[str]
 
+    # Kullanıcının kampanya oluştururken işaretlediği platformlar (ör. ["google_ads", "instagram"]) -
+    # Media Agent bütçe dağılımını buna göre yapsın diye gerekiyor.
+    platforms: Optional[List[str]]
+
     # Kullanıcının kampanyaya yüklediği gerçek görsellerin worker'ın erişebileceği URL'leri
     # (Creative Agent görsel üretirken referans olarak kullanır)
     reference_image_urls: Optional[List[str]]
@@ -26,7 +30,9 @@ class CampaignState(TypedDict):
     # Creative Agent çıktısı: [{"angle", "ad_copy", "image_prompt", "generated_image_url"}]
     creatives: Optional[List[Dict[str, str]]]
 
-    # Media Agent çıktısı (insan onayından sonra devam eder)
+    # Media Agent çıktısı: hedefleme (yaş aralığı vb.) ve platformlar arası bütçe dağılımı.
+    # research/creative ile aynı ilk çalıştırmada üretilir (insan onayından önce) - onay
+    # anında Laravel bunu publisher'lara aktarır (bkz. CampaignController::dispatchToPublishQueue).
     targeting: Optional[Dict]
     budget: Optional[Dict]
 

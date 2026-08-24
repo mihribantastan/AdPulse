@@ -1,14 +1,15 @@
 """Onaylanan reklamı gerçek Meta Marketing API çağrısıyla (Facebook/Instagram)
-paylaşılan iş hesabında yayınlar.
+kampanya sahibinin KENDİ bağlı reklam hesabında yayınlar (bkz.
+PlatformConnectionController - kullanıcı Ayarlar'dan kendi hesabını bağlar).
 
 publisher.py (Google Ads) ile aynı güvenlik deseni: kampanya PAUSED olarak
 oluşturulur, gerçekten yayına almak isteyen kullanıcı bunu Meta Ads Manager
 panelinden kendisi yapar - API üzerinden yanlışlıkla gerçek harcama başlamaz.
 
-Kimlik doğrulama tek bir paylaşılan İş Yöneticisi (Business Manager) hesabı
-üzerinden - Google Ads entegrasyonuyla aynı mimari. Bu, üçüncü taraf
-hesaplara bağlanmadığı için Meta'nın "App Review" sürecini gerektirmez;
-sadece uygulama sahibinin/test kullanıcısının kendi reklam hesabına erişir.
+app_id/app_secret uygulamaya ait paylaşılan sırlar (AdPulse'ın Meta App'i);
+access_token/ad_account_id/page_id kampanya sahibine ait. Uygulama "Development
+Mode"dayken sadece App'e Admin/Tester olarak eklenmiş hesaplar bağlanabilir -
+başkalarının kendi hesabını bağlayabilmesi Meta'nın "App Review" onayını gerektirir.
 """
 import base64
 import re
@@ -20,6 +21,18 @@ from facebook_business.api import FacebookAdsApi
 from facebook_business.adobjects.adaccount import AdAccount
 from facebook_business.adobjects.adimage import AdImage
 from facebook_business.exceptions import FacebookRequestError
+
+
+def _parse_age_range(age_range: str | None) -> tuple[int | None, int | None]:
+    """Media Agent'ın ürettiği '25-45' gibi bir string'i Meta'nın kabul ettiği
+    age_min/age_max (13-65 arası, tam sayı) değerlerine çevirir."""
+    if not age_range:
+        return None, None
+    match = re.match(r"\s*(\d+)\s*-\s*(\d+)\s*", age_range)
+    if not match:
+        return None, None
+    low, high = int(match.group(1)), int(match.group(2))
+    return max(13, min(low, 65)), max(13, min(high, 65))
 
 
 def _looks_like_url(value: str) -> bool:
@@ -114,27 +127,38 @@ def publish_to_meta(payload: dict) -> dict:
         })
         meta_campaign_id = campaign["id"]
 
-        # 2. Reklam Seti: hedefleme şu an geniş (sadece ülke) - AI ajanları
-        # henüz Meta'ya özel yaş/ilgi alanı hedeflemesi üretmiyor.
+        # 2. Reklam Seti
         publisher_platforms = []
         if "facebook" in platforms:
             publisher_platforms.append("facebook")
         if "instagram" in platforms:
             publisher_platforms.append("instagram")
 
+        # Kampanya hem Google Ads hem Meta'ya birden yayınlanıyorsa, her ikisi de TAM
+        # günlük bütçeyi kullanırsa kullanıcının ayarladığından fazla harcama niyeti
+        # oluşur - Media Agent'ın belirlediği yüzdeye göre bu platformun payını al.
+        budget_share = (payload.get("budget_distribution") or {}).get("meta", 100)
+        effective_daily_budget = daily_budget * (float(budget_share) / 100)
+
+        targeting = {
+            "geo_locations": {"countries": ["TR"]},
+            "publisher_platforms": publisher_platforms or ["facebook", "instagram"],
+        }
+        age_min, age_max = _parse_age_range((payload.get("targeting") or {}).get("age_range"))
+        if age_min is not None:
+            targeting["age_min"] = age_min
+            targeting["age_max"] = age_max
+
         ad_set = account.create_ad_set(params={
             "name": f"AdPulse Reklam Seti #{unique_suffix}",
             "campaign_id": meta_campaign_id,
             # Meta çoğu para birimi için bütçeyi en küçük birimle (kuruş) ister
-            "daily_budget": max(int(daily_budget * 100), 100),
+            "daily_budget": max(int(effective_daily_budget * 100), 100),
             "billing_event": "IMPRESSIONS",
             "optimization_goal": "LINK_CLICKS",
             "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
             "status": "PAUSED",
-            "targeting": {
-                "geo_locations": {"countries": ["TR"]},
-                "publisher_platforms": publisher_platforms or ["facebook", "instagram"],
-            },
+            "targeting": targeting,
         })
         ad_set_id = ad_set["id"]
 

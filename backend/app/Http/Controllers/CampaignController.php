@@ -143,11 +143,17 @@ class CampaignController extends Controller
         $this->authorizeOwner($request, $campaign);
 
         $creatives = $campaign->ai_analysis_results['creatives'] ?? [];
-        $maxIndex = max(count($creatives) - 1, 0);
+        $copyMaxIndex = max(count($creatives) - 1, 0);
+
+        // Görsel için sadece AI'nin ürettiği 3 kreatif değil, kullanıcının kampanyaya
+        // yüklediği kendi görselleri de seçilebilir olsun diye indeks aralığı
+        // creatives'ten sonra assets ile devam ediyor (bkz. aşağıdaki resolveSelectedImage).
+        $imageAssets = $campaign->assets()->where('type', 'image')->get();
+        $imageMaxIndex = max(count($creatives) + count($imageAssets) - 1, 0);
 
         $validated = $request->validate([
-            'selected_copy_index' => ['required', 'integer', 'min:0', 'max:' . $maxIndex],
-            'selected_image_index' => ['required', 'integer', 'min:0', 'max:' . $maxIndex],
+            'selected_copy_index' => ['required', 'integer', 'min:0', 'max:' . $copyMaxIndex],
+            'selected_image_index' => ['required', 'integer', 'min:0', 'max:' . $imageMaxIndex],
         ]);
 
         $wantsGoogle = in_array('google_ads', $campaign->platforms ?? [], true);
@@ -186,11 +192,20 @@ class CampaignController extends Controller
         // Metin ve görsel farklı kreatiflerden seçilmiş olabilir - yayına giden
         // "seçilen reklam" ikisini birleştiren melez bir obje.
         $selectedCopy = $creatives[$validated['selected_copy_index']];
-        $selectedImage = $creatives[$validated['selected_image_index']];
+        $imageIndex = $validated['selected_image_index'];
+        if ($imageIndex < count($creatives)) {
+            $selectedImageUrl = $creatives[$imageIndex]['generated_image_url'] ?? null;
+        } else {
+            // creatives'ten sonraki indeksler kullanıcının kendi yüklediği görsellere denk
+            // gelir - worker'ın erişebileceği dahili URL ile (bkz. dispatchToAgentQueue).
+            $internalAppUrl = rtrim(env('INTERNAL_APP_URL', 'http://app:8000'), '/');
+            $asset = $imageAssets[$imageIndex - count($creatives)];
+            $selectedImageUrl = $internalAppUrl . '/storage/' . $asset->path;
+        }
         $mergedCreative = [
             'angle' => $selectedCopy['angle'] ?? null,
             'ad_copy' => $selectedCopy['ad_copy'] ?? null,
-            'generated_image_url' => $selectedImage['generated_image_url'] ?? null,
+            'generated_image_url' => $selectedImageUrl,
         ];
 
         $this->dispatchToPublishQueue($campaign, $mergedCreative, $googleConnection, $metaConnection);
@@ -309,6 +324,10 @@ class CampaignController extends Controller
                 'strategy_brief' => $campaign->ai_analysis_results['strategy_brief'] ?? null,
                 'selected_creative' => $selectedCreative,
                 'platforms' => $campaign->platforms,
+                // Media Agent'ın ürettiği hedefleme/bütçe dağılımı - publisher'lar bunu
+                // gerçek yaş aralığı hedeflemesi ve platformlar arası bütçe payı için kullanır.
+                'targeting' => $campaign->ai_analysis_results['targeting'] ?? null,
+                'budget_distribution' => $campaign->ai_analysis_results['budget'] ?? null,
                 'google_ads_credentials' => $googleConnection ? [
                     'refresh_token' => $googleConnection->refresh_token,
                     'customer_id' => $googleConnection->external_account_id,

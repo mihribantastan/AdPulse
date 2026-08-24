@@ -93,6 +93,35 @@ def _fetch_site_context(url: str) -> str | None:
         raw, re.IGNORECASE,
     )
 
+    # React/Vue gibi client-side render eden sitelerde ham HTML'in gövdesi neredeyse
+    # boş gelir (içerik JS ile sonradan doluyor) - ama SEO için çoğu modern e-ticaret
+    # sitesi structured data'yı (JSON-LD) sunucu tarafında, ham HTML'in içine gömer.
+    # Bu yüzden gövde metninden önce JSON-LD'deki ürün adı/açıklama/fiyat bilgisini
+    # ayrıca çıkarıyoruz - JS render edilmese bile bu genelde mevcut oluyor.
+    ld_json_parts = []
+    for ld_match in re.finditer(
+        r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+        raw, re.IGNORECASE | re.DOTALL,
+    ):
+        try:
+            data = json.loads(ld_match.group(1).strip())
+        except (json.JSONDecodeError, ValueError):
+            continue
+        for entry in (data if isinstance(data, list) else [data]):
+            if not isinstance(entry, dict):
+                continue
+            name = entry.get("name")
+            description = entry.get("description")
+            offers = entry.get("offers")
+            price = offers.get("price") if isinstance(offers, dict) else None
+            currency = offers.get("priceCurrency") if isinstance(offers, dict) else None
+            if name:
+                ld_json_parts.append(f"Ürün adı (structured data): {name}")
+            if description:
+                ld_json_parts.append(f"Ürün açıklaması (structured data): {description}")
+            if price:
+                ld_json_parts.append(f"Fiyat (structured data): {price} {currency or ''}".strip())
+
     body = re.sub(r"<(script|style|nav|footer|header)[^>]*>.*?</\1>", " ", raw, flags=re.IGNORECASE | re.DOTALL)
     body = re.sub(r"<[^>]+>", " ", body)
     body = html_lib.unescape(body)
@@ -103,6 +132,7 @@ def _fetch_site_context(url: str) -> str | None:
         parts.append(f"Sayfa başlığı: {html_lib.unescape(title_match.group(1)).strip()}")
     if desc_match:
         parts.append(f"Sayfa açıklaması: {html_lib.unescape(desc_match.group(1)).strip()}")
+    parts.extend(ld_json_parts[:6])  # çok sayıda ürün şeması olan sayfalarda taşmasın
     if body:
         parts.append(f"Sayfa içeriğinden alıntı: {body[:2500]}")
 
@@ -196,6 +226,12 @@ def creative_agent(state: CampaignState):
          "şekilde farklı açılardan yaklaşsın - üçü de aynı şeyi farklı kelimelerle söylemesin. "
          "ÖNEMLİ: ad_copy'lerde 'öne çıkan özellikler' varsa bunları GERÇEK ve SOMUT şekilde ("
          "genel geçer 'kaliteli', 'harika' gibi sıfatlar değil, verilen özelliklerin kendisi) kullan. "
+         "KESİNLİKLE UYDURMA: sana verilmeyen hiçbir somut rakam/oran/miktar YAZMA - '%20 indirim', "
+         "'ilk 100 kişiye', 'stokta sadece 5 adet', belirli bir fiyat gibi ifadeleri SADECE bu bilgi "
+         "sana context'te (özellikler, site içeriği, ek istekler) gerçekten verilmişse kullan. Verilmemişse "
+         "bu tür somut vaatler yerine genel ama dürüst bir aciliyet/fayda dili kullan (ör. 'sınırlı fırsat' "
+         "yerine gerçek bir oran uydurma). Bu gerçek reklam parasıyla yayınlanacak, yanlış/uydurma vaat "
+         "yasal ve güven riski taşır. "
          "Kullanıcının belirttiği marka tonuna (ör. samimi, lüks, eğlenceli, profesyonel) harfiyen uy "
          "ve varsa ek isteklerini/talimatlarını mutlaka uygula. "
          "Kampanya hedefi belirtildiyse mesajın yapısını ona göre kur: 'Marka Bilinirliği' ise hikaye/marka "
@@ -234,6 +270,17 @@ def creative_agent(state: CampaignState):
         if len(creatives_list) >= 3:
             break
         print(f"⚠️ [Creative Agent] Beklenen 3 yerine {len(creatives_list)} kreatif döndü (deneme {attempt + 1}/3), tekrar deneniyor...")
+
+    # "400-600 karakter" istedik ama bu bir talep, zorunluluk değil - LLM bazen çok
+    # kısa (sloganlaşır) ya da çok uzun (Meta/Google'ın pratik sınırlarını zorlar)
+    # yazabiliyor. Sert bir üst sınırla kırpıyoruz, kısa olanı reddetmiyoruz (yeniden
+    # denemek ekstra LLM çağrısı demek) ama en azından logluyoruz.
+    for creative in creatives_list:
+        ad_copy = creative.get("ad_copy") or ""
+        if len(ad_copy) > 900:
+            creative["ad_copy"] = ad_copy[:900].rsplit(" ", 1)[0] + "..."
+        elif len(ad_copy) < 150:
+            print(f"⚠️ [Creative Agent] '{creative.get('angle')}' beklenenden kısa ({len(ad_copy)} karakter)")
 
     # 2. AŞAMA: Her kreatif için ayrı görsel üretimi (kullanıcı üçünden birini seçebilsin diye).
     # Kullanıcı kendi ürün görseli yüklediyse (video değil - edit API görsel ister),
@@ -293,20 +340,38 @@ def media_agent(state: CampaignState):
     strategy_brief = state.get("strategy_brief", "")
     current_logs = state.get("audit_log", [])
 
+    # Sadece gerçekten yayın yapabildiğimiz platformlar arasında dağıtım yap - kullanıcı
+    # youtube/tiktok/x seçmiş olabilir ama bunlar için henüz publisher yok, dahil etmenin
+    # anlamı yok. Kullanıcı hiç google_ads/instagram/facebook seçmediyse (veya platforms
+    # bilgisi hiç gelmediyse) makul bir varsayılan olarak ikisine de eşit dağıt.
+    campaign_platforms = state.get("platforms") or []
+    wants_google = "google_ads" in campaign_platforms
+    wants_meta = "instagram" in campaign_platforms or "facebook" in campaign_platforms
+    if not wants_google and not wants_meta:
+        wants_google = wants_meta = True
+    active_platforms = [p for p, wants in [("google_ads", wants_google), ("meta", wants_meta)] if wants]
+
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0)
     prompt = ChatPromptTemplate.from_messages([
         ("system", "Sen kıdemli bir Medya Planlama Uzmanısın. "
-         "Sana verilecek strateji brief'ini ve günlük bütçeyi kullanarak Meta (Facebook/Instagram) ve "
-         "Google Ads arasında bir dağıtım planı yap. "
-         "Çıktını SADECE aşağıdaki gibi bir JSON objesi olarak ver. Markdown veya açıklama ekleme:\n"
+         "Sana verilecek strateji brief'ini ve günlük bütçeyi kullanarak SADECE şu platformlar "
+         "arasında ({platforms}) bir dağıtım planı yap - başka platform ekleme, listede bir tek "
+         "platform varsa ona %100 ver. "
+         "age_range için gerçekçi bir sayısal aralık yaz (ör. '25-45'), metin değil. "
+         "Çıktını SADECE aşağıdaki gibi bir JSON objesi olarak ver, platform anahtarlarını AYNEN "
+         "verdiğim gibi (küçük harf, alt tire) kullan. Markdown veya açıklama ekleme:\n"
          "{{\n"
-         '  "targeting": {{"platforms": ["Meta", "Google Ads"], "age_range": "18-35", "interests": ["Gaming", "Technology"]}},\n'
-         '  "budget_distribution": {{"Meta": "%60", "Google Ads": "%40"}}\n'
+         '  "targeting": {{"age_range": "25-45", "interests": ["Gaming", "Technology"]}},\n'
+         '  "budget_distribution": {{"google_ads": 60, "meta": 40}}\n'
          "}}"),
         ("user", "Brief: {brief}\nGünlük Bütçe: {budget} TL"),
     ])
     chain = prompt | llm
-    response = chain.invoke({"brief": strategy_brief, "budget": state["daily_budget"]})
+    response = chain.invoke({
+        "brief": strategy_brief,
+        "budget": state["daily_budget"],
+        "platforms": ", ".join(active_platforms),
+    })
 
     match = re.search(r'\{.*\}', response.content, re.DOTALL)
     try:
@@ -315,8 +380,20 @@ def media_agent(state: CampaignState):
         print(f"⚠️ [Media Agent] JSON format hatası: {e}")
         media_plan = {}
 
+    # Güvenlik ağı: LLM istenmeyen bir platform eklerse ya da yüzdeler toplamı 100 değilse
+    # (ya da tek platform varsa payını unutursa), tek platform için her zaman %100'e,
+    # iki platform için LLM'in oranını normalize ederek düzeltiyoruz - publisher'lar bu
+    # yüzdeye göre kendi bütçe paylarını hesaplayacak, yanlış değer gerçek harcamayı bozar.
+    raw_distribution = media_plan.get("budget_distribution", {})
+    distribution = {p: float(raw_distribution.get(p) or 0) for p in active_platforms}
+    total = sum(distribution.values())
+    if total <= 0:
+        distribution = {p: 100 / len(active_platforms) for p in active_platforms}
+    elif total != 100:
+        distribution = {p: (v / total) * 100 for p, v in distribution.items()}
+
     return {
         "targeting": media_plan.get("targeting", {}),
-        "budget": media_plan.get("budget_distribution", {}),
+        "budget": distribution,
         "audit_log": current_logs + ["Media Agent: Hedefleme ve bütçe planlaması tamamlandı."],
     }

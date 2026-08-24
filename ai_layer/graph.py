@@ -20,11 +20,17 @@ workflow.add_edge("media", END)
 # 1. Hafıza nesnesini oluştur
 memory = MemorySaver()
 
-# 2. Grafı derlerken hafızayı bağla ve "media" düğümünden ÖNCE durdur!
-app = workflow.compile(
-    checkpointer=memory,
-    interrupt_before=["media"]
-)
+# NOT: "media" düğümünden önce durdurma KALDIRILDI. Insan onayı zaten LangGraph'in
+# interrupt/resume mekanizmasıyla değil, ayrı bir yol üzerinden yapılıyor: Laravel
+# kampanyayı "pending" kaydediyor, kullanıcı Kampanya Detayı'ndan onaylayınca ayrı bir
+# Redis kuyruğu (adpulse_publish_queue) üzerinden publisher.py/meta_publisher.py
+# doğrudan çağrılıyor - queue_worker.py hiçbir zaman app.invoke(None, config) ile
+# grafı devam ettirmiyordu, yani media_agent hiç çalışmıyordu. Hedefleme (yaş aralığı,
+# bütçe dağılımı) reklam onayından ÖNCE karar verilebilecek bir şey olduğu için
+# media_agent'ı research/creative ile aynı ilk çalıştırmada (insan onayından önce)
+# çalıştırmak daha doğru - üretilen targeting/budget artık kampanyanın
+# ai_analysis_results'ına kaydedilip onay anında publisher'lara geçiyor.
+app = workflow.compile(checkpointer=memory)
 
 if __name__ == "__main__":
     initial_state = {
@@ -37,20 +43,9 @@ if __name__ == "__main__":
     # Hafızanın hangi oturumu (thread) takip edeceğini belirtmemiz şart
     config = {"configurable": {"thread_id": "kampanya_1"}}
 
-    print("🚀 1. AŞAMA: Graf Başlatılıyor (Onaya Kadar Çalışacak)...\n" + "-"*40)
-    
-    # Grafı çalıştır
-    state_after_creative = app.invoke(initial_state, config)
-    
-    print("⏸️ GRAF DURAKLATILDI! İnsan Onayı Bekleniyor...\n")
-    print("Şu anki State:")
-    import pprint
-    pprint.pprint(state_after_creative)
-    
-    print("\n" + "-"*40 + "\n✅ 2. AŞAMA: İnsan Onayı Verildi! Kalan Kısım Çalıştırılıyor...")
-    
-    # Hiçbir yeni veri vermeden (None) sadece aynı config ile invoke edersek, kaldığı yerden devam eder!
-    final_state = app.invoke(None, config)
-    
+    print("🚀 Graf çalıştırılıyor (research → creative → media)...\n" + "-"*40)
+    final_state = app.invoke(initial_state, config)
+
     print("\n🎉 FİNAL ÇIKTISI:")
+    import pprint
     pprint.pprint(final_state)
