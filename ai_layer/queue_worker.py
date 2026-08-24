@@ -9,6 +9,7 @@ import json
 import time
 from graph import app  # LangGraph beynimizi buraya dahil ediyoruz
 from publisher import publish_campaign
+from meta_publisher import publish_to_meta
 
 REDIS_URL = os.environ.get("REDIS_URL")
 REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
@@ -26,31 +27,41 @@ if REDIS_URL:
 else:
     r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
 
-def handle_publish_job(message: str) -> None:
-    payload = json.loads(message)
-    campaign_id = payload.get("campaign_id")
-    print(f"\n" + "="*50)
-    print(f"📤 Yayın emri alındı: kampanya #{campaign_id}")
-    print("🎯 Google Ads API'ye gerçek kampanya oluşturuluyor (PAUSED)...")
-
-    result = publish_campaign(payload)
-
-    if result["success"]:
-        print(f"✅ Google Ads kampanyası oluşturuldu: {result['google_ads_campaign_id']}")
-    else:
-        print(f"❌ Google Ads yayını başarısız: {result['error']}")
-
+def _report_publish_result(campaign_id, platform: str, result: dict) -> None:
     callback_payload = {
         "campaign_id": campaign_id,
+        "platform": platform,
         "status": "published" if result["success"] else "failed",
-        "google_ads_campaign_id": result["google_ads_campaign_id"],
-        "error": result["error"],
+        "external_campaign_id": result.get("campaign_id"),
+        "error": result.get("error"),
     }
     try:
         response = requests.post(LARAVEL_PUBLISH_URL, json=callback_payload)
-        print(f"✅ Laravel'e yayın sonucu gönderildi: {response.json()}")
+        print(f"✅ Laravel'e {platform} yayın sonucu gönderildi: {response.json()}")
     except Exception as e:
-        print(f"❌ Laravel'e yayın sonucu gönderirken hata oluştu: {e}")
+        print(f"❌ Laravel'e {platform} yayın sonucu gönderirken hata oluştu: {e}")
+
+
+def handle_publish_job(message: str) -> None:
+    payload = json.loads(message)
+    campaign_id = payload.get("campaign_id")
+    platforms = payload.get("platforms") or []
+    print(f"\n" + "="*50)
+    print(f"📤 Yayın emri alındı: kampanya #{campaign_id} (platformlar: {platforms})")
+
+    if "google_ads" in platforms:
+        print("🎯 Google Ads API'ye gerçek kampanya oluşturuluyor (PAUSED)...")
+        result = publish_campaign(payload)
+        print(f"✅ Google Ads kampanyası oluşturuldu: {result['campaign_id']}" if result["success"]
+              else f"❌ Google Ads yayını başarısız: {result['error']}")
+        _report_publish_result(campaign_id, "google_ads", result)
+
+    if "instagram" in platforms or "facebook" in platforms:
+        print("🎯 Meta (Facebook/Instagram) API'ye gerçek kampanya oluşturuluyor (PAUSED)...")
+        result = publish_to_meta(payload)
+        print(f"✅ Meta kampanyası oluşturuldu: {result['campaign_id']}" if result["success"]
+              else f"❌ Meta yayını başarısız: {result['error']}")
+        _report_publish_result(campaign_id, "meta", result)
 
 
 def listen_for_campaigns():

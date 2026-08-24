@@ -64,3 +64,13 @@ services:
         sync: false
       - key: GOOGLE_ADS_CUSTOMER_ID
         sync: false
+      - key: META_APP_ID
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: META_ACCESS_TOKEN
+        sync: false
+      - key: META_AD_ACCOUNT_ID
+        sync: false
+      - key: META_PAGE_ID
+        sync: false

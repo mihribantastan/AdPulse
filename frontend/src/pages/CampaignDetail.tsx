@@ -49,8 +49,8 @@ export function CampaignDetail() {
         if (cancelled) return;
         setCampaign(data);
         setLoadError(false);
-        // Ajanlar henüz sonuç üretmediyse ya da Google Ads'e yayın sürüyorsa birkaç saniyede bir tekrar sor
-        if (!data.ai_analysis_results || data.google_ads_status === 'publishing') {
+        // Ajanlar henüz sonuç üretmediyse ya da bir platforma yayın sürüyorsa birkaç saniyede bir tekrar sor
+        if (!data.ai_analysis_results || data.google_ads_status === 'publishing' || data.meta_status === 'publishing') {
           timer = setTimeout(load, 4000);
         }
       } catch {
@@ -283,6 +283,58 @@ export function CampaignDetail() {
               <p className="text-sm font-medium text-rose-400">Google Ads'e yayınlanamadı.</p>
               {campaign.google_ads_error && (
                 <p className="text-xs text-rose-400/70">{campaign.google_ads_error}</p>
+              )}
+              {campaign.selected_copy_index != null && campaign.selected_image_index != null && (
+                <button
+                  onClick={() => confirmSelection(campaign.selected_copy_index!, campaign.selected_image_index!)}
+                  disabled={approving}
+                  className="text-xs font-medium text-rose-400 hover:underline disabled:opacity-50"
+                >
+                  {approving ? 'Deneniyor...' : 'Tekrar dene'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {campaign.meta_status === 'publishing' && (
+          <div className="bg-glass/[0.03] backdrop-blur-xl border border-glass/10 rounded-2xl p-6 flex items-center gap-3">
+            <Loader2 size={18} className="text-accent-400 animate-spin shrink-0" />
+            <p className="text-sm text-ink-300">
+              Meta (Facebook/Instagram) hesabınızda gerçek bir kampanya oluşturuluyor... (genelde 15-30 saniye sürer)
+            </p>
+          </div>
+        )}
+
+        {campaign.meta_status === 'published' && (
+          <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-6 flex items-start gap-3">
+            <Check size={18} className="text-emerald-400 shrink-0 mt-0.5" strokeWidth={2.5} />
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-emerald-400">
+                Meta'da gerçek bir kampanya olarak oluşturuldu (duraklatılmış / PAUSED).
+              </p>
+              <p className="text-xs text-emerald-400/70">
+                Kampanya ID: {campaign.meta_campaign_id} · Gerçekten yayına almak için Meta Ads Manager panelinden kampanyayı etkinleştirmen gerekiyor.
+              </p>
+              <a
+                href="https://business.facebook.com/adsmanager/manage/campaigns"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400 hover:underline"
+              >
+                Meta Ads Manager'da görüntüle <ExternalLink size={12} />
+              </a>
+            </div>
+          </div>
+        )}
+
+        {campaign.meta_status === 'failed' && (
+          <div className="bg-rose-500/5 border border-rose-500/20 rounded-2xl p-6 flex items-start gap-3">
+            <AlertTriangle size={18} className="text-rose-400 shrink-0 mt-0.5" />
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-rose-400">Meta'ya yayınlanamadı.</p>
+              {campaign.meta_error && (
+                <p className="text-xs text-rose-400/70">{campaign.meta_error}</p>
               )}
               {campaign.selected_copy_index != null && campaign.selected_image_index != null && (
                 <button

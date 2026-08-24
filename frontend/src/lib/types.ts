@@ -75,6 +75,7 @@ export type CampaignAsset = {
 };
 
 export type GoogleAdsStatus = 'publishing' | 'published' | 'failed';
+export type MetaStatus = 'publishing' | 'published' | 'failed';
 
 export type Campaign = {
   id: string;
@@ -95,6 +96,9 @@ export type Campaign = {
   google_ads_status?: GoogleAdsStatus | null;
   google_ads_campaign_id?: string | null;
   google_ads_error?: string | null;
+  meta_status?: MetaStatus | null;
+  meta_campaign_id?: string | null;
+  meta_error?: string | null;
   assets?: CampaignAsset[];
 };
 

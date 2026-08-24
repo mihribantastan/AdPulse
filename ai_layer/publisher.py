@@ -84,7 +84,7 @@ def _load_client() -> GoogleAdsClient:
 
 def publish_campaign(payload: dict) -> dict:
     """payload: campaign_id, target_url_or_product, daily_budget, strategy_brief, selected_creative.
-    Dönüş: {"success": bool, "google_ads_campaign_id": str|None, "error": str|None}"""
+    Dönüş: {"success": bool, "campaign_id": str|None, "error": str|None}"""
     campaign_id = payload.get("campaign_id")
     target_product = payload.get("target_url_or_product") or ""
     daily_budget = float(payload.get("daily_budget") or 0)
@@ -95,7 +95,7 @@ def publish_campaign(payload: dict) -> dict:
     if not _looks_like_url(target_product):
         return {
             "success": False,
-            "google_ads_campaign_id": None,
+            "campaign_id": None,
             "error": (
                 "Google Ads'de gerçek bir reklam yayınlamak için 'Hedef URL veya Ürün' alanının "
                 "geçerli bir http(s) linki olması gerekiyor (şu an: "
@@ -191,11 +191,11 @@ def publish_campaign(payload: dict) -> dict:
             customer_id=customer_id, operations=[ad_group_ad_operation]
         )
 
-        google_ads_campaign_id = campaign_resource_name.split("/")[-1]
-        return {"success": True, "google_ads_campaign_id": google_ads_campaign_id, "error": None}
+        google_ads_campaign_ref = campaign_resource_name.split("/")[-1]
+        return {"success": True, "campaign_id": google_ads_campaign_ref, "error": None}
 
     except GoogleAdsException as ex:
         messages = "; ".join(error.message for error in ex.failure.errors)
-        return {"success": False, "google_ads_campaign_id": None, "error": f"Google Ads API hatası: {messages}"}
+        return {"success": False, "campaign_id": None, "error": f"Google Ads API hatası: {messages}"}
     except Exception as e:
-        return {"success": False, "google_ads_campaign_id": None, "error": f"Beklenmeyen hata: {e}"}
+        return {"success": False, "campaign_id": None, "error": f"Beklenmeyen hata: {e}"}

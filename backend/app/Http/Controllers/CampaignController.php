@@ -135,8 +135,8 @@ class CampaignController extends Controller
     }
 
     // Kullanıcı reklam metnini ve görselini ayrı ayrı seçip onaylar (farklı
-    // kreatiflerden bile olabilir); bu seçimi gerçek Google Ads API çağrısıyla
-    // test hesabında yayınlamak üzere kuyruğa atar
+    // kreatiflerden bile olabilir); bu seçimi kampanyada işaretli platformlara
+    // (Google Ads ve/veya Meta) gerçek API çağrısıyla yayınlamak üzere kuyruğa atar
     public function approve(Request $request, Campaign $campaign)
     {
         $this->authorizeOwner($request, $campaign);
@@ -149,12 +149,17 @@ class CampaignController extends Controller
             'selected_image_index' => ['required', 'integer', 'min:0', 'max:' . $maxIndex],
         ]);
 
+        $wantsGoogle = in_array('google_ads', $campaign->platforms ?? [], true);
+        $wantsMeta = !empty(array_intersect(['instagram', 'facebook'], $campaign->platforms ?? []));
+
         $campaign->update([
             'selected_copy_index' => $validated['selected_copy_index'],
             'selected_image_index' => $validated['selected_image_index'],
             'approval_status' => 'approved',
-            'google_ads_status' => 'publishing',
+            'google_ads_status' => $wantsGoogle ? 'publishing' : null,
             'google_ads_error' => null,
+            'meta_status' => $wantsMeta ? 'publishing' : null,
+            'meta_error' => null,
         ]);
 
         // Metin ve görsel farklı kreatiflerden seçilmiş olabilir - yayına giden
@@ -170,7 +175,7 @@ class CampaignController extends Controller
         $this->dispatchToPublishQueue($campaign, $mergedCreative);
 
         return response()->json([
-            'message' => 'Reklam seçildi, kampanya onaylandı ve Google Ads\'e gönderiliyor.',
+            'message' => 'Reklam seçildi, kampanya onaylandı ve seçili platformlara gönderiliyor.',
             'data' => $campaign,
         ]);
     }
@@ -194,25 +199,29 @@ class CampaignController extends Controller
         ]);
     }
 
-    // Python (ai_layer/publisher.py) gerçek Google Ads API çağrısının sonucunu bildirir
+    // Python (ai_layer/publisher.py, meta_publisher.py) gerçek platform API çağrısının
+    // sonucunu bildirir; kampanya birden fazla platforma birden yayınlanabildiği için
+    // her platform kendi sonucunu ayrı ayrı bildirir ("platform" alanıyla)
     public function publishComplete(Request $request)
     {
         $validated = $request->validate([
             'campaign_id' => 'required|integer|exists:campaigns,id',
+            'platform' => 'required|string|in:google_ads,meta',
             'status' => 'required|string|in:published,failed',
-            'google_ads_campaign_id' => 'nullable|string',
+            'external_campaign_id' => 'nullable|string',
             'error' => 'nullable|string',
         ]);
 
         $campaign = Campaign::findOrFail($validated['campaign_id']);
+        $prefix = $validated['platform'] === 'meta' ? 'meta' : 'google_ads';
         $campaign->update([
-            'google_ads_status' => $validated['status'],
-            'google_ads_campaign_id' => $validated['google_ads_campaign_id'] ?? null,
-            'google_ads_error' => $validated['error'] ?? null,
+            "{$prefix}_status" => $validated['status'],
+            "{$prefix}_campaign_id" => $validated['external_campaign_id'] ?? null,
+            "{$prefix}_error" => $validated['error'] ?? null,
         ]);
 
         return response()->json([
-            'message' => 'Kampanya Google Ads yayın sonucuyla güncellendi.',
+            'message' => 'Kampanya yayın sonucuyla güncellendi.',
             'data' => $campaign,
         ]);
     }
@@ -263,7 +272,8 @@ class CampaignController extends Controller
     }
 
     // ai_layer/queue_worker.py'nin dinlediği "adpulse_publish_queue" listesine seçilen
-    // reklamı iter; worker bunu gerçek Google Ads API çağrısıyla test hesabında yayınlar
+    // reklamı iter; worker "platforms"a göre Google Ads ve/veya Meta'ya gerçek API
+    // çağrısıyla test hesabında yayınlar
     private function dispatchToPublishQueue(Campaign $campaign, array $selectedCreative): void
     {
         try {
@@ -273,13 +283,17 @@ class CampaignController extends Controller
                 'daily_budget' => (float) $campaign->daily_budget,
                 'strategy_brief' => $campaign->ai_analysis_results['strategy_brief'] ?? null,
                 'selected_creative' => $selectedCreative,
+                'platforms' => $campaign->platforms,
             ]));
         } catch (\Throwable $e) {
-            $campaign->update([
-                'google_ads_status' => 'failed',
-                'google_ads_error' => 'Yayın kuyruğuna gönderilemedi: ' . $e->getMessage(),
-            ]);
-            Log::error('Yayın kuyruğuna gönderim başarısız oldu: ' . $e->getMessage(), [
+            $errorMessage = 'Yayın kuyruğuna gönderilemedi: ' . $e->getMessage();
+            $campaign->update(array_filter([
+                'google_ads_status' => $campaign->google_ads_status !== null ? 'failed' : null,
+                'google_ads_error' => $campaign->google_ads_status !== null ? $errorMessage : null,
+                'meta_status' => $campaign->meta_status !== null ? 'failed' : null,
+                'meta_error' => $campaign->meta_status !== null ? $errorMessage : null,
+            ]));
+            Log::error($errorMessage, [
                 'campaign_id' => $campaign->id,
             ]);
         }

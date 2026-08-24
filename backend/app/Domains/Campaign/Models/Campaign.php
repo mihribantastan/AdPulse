@@ -28,6 +28,9 @@ class Campaign extends Model
         'google_ads_status',
         'google_ads_campaign_id',
         'google_ads_error',
+        'meta_status',
+        'meta_campaign_id',
+        'meta_error',
     ];
 
     // JSON verilerini otomatik diziye çevirmesi için

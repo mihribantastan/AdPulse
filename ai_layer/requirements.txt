@@ -8,3 +8,4 @@ redis==8.0.1
 requests==2.34.2
 google-ads==31.2.0
 google-auth-oauthlib==1.4.0
+facebook-business==26.0.0
