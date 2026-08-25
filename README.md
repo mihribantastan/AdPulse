@@ -55,12 +55,21 @@ backend/    Laravel API (Domains/Campaign, Domains/Integration, Domains/Agent)
 ai_layer/   LangGraph ajanları, kuyruk dinleyicisi, Google Ads/Meta publisher'ları
 frontend/   React SPA
 docker/     Render imajı için supervisord + entrypoint betikleri
-adpulse/    Yerel Docker verisi: .env, db (Postgres volume referansı), assets, backups
+adpulse/    Yerel Docker verisi: .env, db (Postgres veri dosyaları), assets, backups
 ```
 
 ## Yerel geliştirme
 
-Gereksinim: Docker Desktop.
+Gereksinim: Docker Desktop, WSL2 (Windows'ta).
+
+> **Windows kullanıcıları için önemli:** Bu depo WSL2'nin **native Linux dosya
+> sisteminde** (örn. `~/AdPulse`) tutulmalı, `/mnt/c/...` altındaki bir Windows
+> yoluna klonlanmamalı. `db` servisi Postgres'in veri dizinini `adpulse/db`
+> klasörüne bind-mount ediyor; bu, Docker Desktop'ın Windows<->Linux dosya
+> paylaşım katmanında güvenilir çalışmıyor (Postgres veri dizinini tanımayıp
+> sessizce boş bir veritabanı oluşturuyor). Native WSL dosya sisteminde bu
+> sorun yaşanmıyor. `docker compose` komutları da bir WSL shell'inden
+> çalıştırılmalı (VS Code için Remote-WSL uzantısı önerilir).
 
 1. `adpulse/.env` dosyasını oluşturup gerekli değişkenleri doldurun (aşağıya bakın).
 2. Servisleri başlatın:
@@ -69,9 +78,11 @@ Gereksinim: Docker Desktop.
    docker compose up -d
    ```
 
-   İlk açılışta `app` servisi bağımlılıkları kurar, migration'ları çalıştırır ve
-   Octane sunucusunu ayağa kaldırır; `backup` servisi günlük Postgres yedeğini
-   `adpulse/backups/` altına almaya başlar.
+   İlk açılışta `adpulse/db`, `adpulse/assets`, `adpulse/backups` klasörleri
+   yoksa Docker tarafından otomatik oluşturulur; `app` servisi bağımlılıkları
+   kurar, migration'ları çalıştırır ve Octane sunucusunu ayağa kaldırır;
+   `backup` servisi günlük Postgres yedeğini `adpulse/backups/` altına almaya
+   başlar.
 
 3. Frontend'i ayrıca çalıştırın:
 
