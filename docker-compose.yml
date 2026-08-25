@@ -33,15 +33,14 @@ services:
       - ./adpulse/.env
     ports:
       - "5432:5432"
-    # NOT: ./adpulse/db gibi bir Windows host yoluna bind-mount denedik ama Postgres
-    # veri dizinini Docker Desktop'ın Windows<->Linux dosya paylaşım katmanından
-    # tanıyamadı, sessizce initdb çalıştırıp BOŞ bir veritabanı oluşturdu (gerçek veri
-    # kaybolmadı, elle kopyalanan tarafta kaldı ama container onu görmedi). Bu bilinen
-    # bir Docker Desktop/Windows kısıtı - Postgres veri dizini bu yüzden Docker'ın kendi
-    # yönettiği named volume'de kalıyor; günlük yedekler (bkz. backup servisi) zaten
-    # ./adpulse/backups altında okunabilir/taşınabilir dosyalar olarak duruyor.
+    # NOT: ./adpulse/db'yi doğrudan bir Windows host yoluna (C:\...) bind-mount etmeyi
+    # denedik ama Postgres veri dizinini Docker Desktop'ın Windows<->Linux dosya
+    # paylaşım katmanından tanıyamadı, sessizce initdb çalıştırıp BOŞ bir veritabanı
+    # oluşturdu. Bu proje bu yüzden WSL2'nin NATIVE Linux dosya sisteminde
+    # (örn. ~/AdPulse, /mnt/c/... DEĞİL) tutulmalı - "docker compose" komutları bir
+    # WSL shell'inden çalıştırılmalı. Native Linux fs'te bind-mount sorunsuz çalışıyor.
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ./adpulse/db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mihriban -d adpulse"]
       interval: 5s
@@ -111,5 +110,4 @@ services:
         done
 
 volumes:
-  pgdata:
   redisdata:
