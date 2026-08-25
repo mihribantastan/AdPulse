@@ -7,11 +7,13 @@ services:
     working_dir: /var/www/html
     volumes:
       - ./backend:/var/www/html
+      # Kullanıcı yüklemeleri (campaign-assets) backend/ bind mount'unun İÇİNDEKİ bu
+      # tek dizinin üzerine ayrıca mount ediliyor - Laravel'in "public" disk kökü.
+      - ./adpulse/assets:/var/www/html/storage/app/public
     ports:
       - "8000:8000"
-    environment:
-      DB_HOST: db
-      REDIS_HOST: redis
+    env_file:
+      - ./adpulse/.env
     depends_on:
       db:
         condition: service_healthy
@@ -20,17 +22,24 @@ services:
     command: >
       sh -c "composer install --no-interaction --no-progress &&
              php artisan migrate --force &&
+             php artisan storage:link --force &&
+             rm -f storage/logs/octane-server-state.json &&
              php artisan octane:start --server=swoole --host=0.0.0.0 --port=8000"
 
   db:
     restart: unless-stopped
     image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: adpulse
-      POSTGRES_USER: mihriban
-      POSTGRES_PASSWORD: mihri.T.3425
+    env_file:
+      - ./adpulse/.env
     ports:
       - "5432:5432"
+    # NOT: ./adpulse/db gibi bir Windows host yoluna bind-mount denedik ama Postgres
+    # veri dizinini Docker Desktop'ın Windows<->Linux dosya paylaşım katmanından
+    # tanıyamadı, sessizce initdb çalıştırıp BOŞ bir veritabanı oluşturdu (gerçek veri
+    # kaybolmadı, elle kopyalanan tarafta kaldı ama container onu görmedi). Bu bilinen
+    # bir Docker Desktop/Windows kısıtı - Postgres veri dizini bu yüzden Docker'ın kendi
+    # yönettiği named volume'de kalıyor; günlük yedekler (bkz. backup servisi) zaten
+    # ./adpulse/backups altında okunabilir/taşınabilir dosyalar olarak duruyor.
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -60,9 +69,8 @@ services:
     volumes:
       - ./ai_layer:/app
     env_file:
-      - ./ai_layer/.env
+      - ./adpulse/.env
     environment:
-      REDIS_HOST: redis
       LARAVEL_URL: http://app:8000/api/campaigns/complete
       LARAVEL_PUBLISH_URL: http://app:8000/api/campaigns/publish-complete
     depends_on:
@@ -70,6 +78,37 @@ services:
         condition: service_healthy
       app:
         condition: service_started
+
+  # Postgres'ten günlük yedek alır (./adpulse/backups altına), 14 günden eski
+  # dosyaları temizler. Servis her zaman ayakta kalıp 24 saatte bir çalışıyor -
+  # "docker compose up" açıkken otomatik işler, kapalıyken almaz (basit yerel
+  # kurulum için yeterli; sürekli açık bir sunucuda gerçek cron'a taşınabilir).
+  backup:
+    restart: unless-stopped
+    image: postgres:16-alpine
+    env_file:
+      - ./adpulse/.env
+    volumes:
+      - ./adpulse/backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint:
+      - sh
+      - -c
+      - |
+        export PGPASSWORD="$$POSTGRES_PASSWORD"
+        while true; do
+          STAMP=$$(date +%Y%m%d_%H%M%S)
+          echo "[backup] $$STAMP yedek alınıyor..."
+          if pg_dump -h db -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -F c -f "/backups/adpulse_$$STAMP.dump"; then
+            echo "[backup] tamamlandı: adpulse_$$STAMP.dump"
+          else
+            echo "[backup] BAŞARISIZ oldu"
+          fi
+          find /backups -name 'adpulse_*.dump' -mtime +14 -delete
+          sleep 86400
+        done
 
 volumes:
   pgdata:

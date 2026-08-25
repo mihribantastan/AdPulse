@@ -224,3 +224,12 @@ __marimo__/
 
 .env
 __pycache__/
+
+# Yerel Docker verisi: gerçek veritabanı yedekleri ve kullanıcı yüklemeleri - sır/kişisel
+# veri, repoya girmemeli. Klasör yapısının kendisi (adpulse/db, assets, backups) docker-compose
+# tarafından ilk çalıştırmada otomatik oluşturuluyor.
+/adpulse/db/
+/adpulse/assets/*
+!/adpulse/assets/.gitkeep
+/adpulse/backups/*
+!/adpulse/backups/.gitkeep
