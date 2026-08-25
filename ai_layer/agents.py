@@ -3,8 +3,10 @@ import json
 import os
 import re
 import html as html_lib
+from typing import Literal, Optional
 
 import requests
+from pydantic import BaseModel, Field
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
@@ -12,65 +14,73 @@ from openai import OpenAI
 
 from state import CampaignState
 
-# Her kategori için Creative Agent'a eklenen ekstra yönlendirme. Tek bir genel
-# prompt yerine, kampanyanın gerçekte ne olduğuna (fiziksel ürün mü, SaaS mı,
-# yerel işletme mi...) göre metin yapısı ve görsel kompozisyonu değişsin diye.
+# Extra guidance appended to the Creative Agent's prompt per category, instead of one
+# generic prompt for everything - so copy structure and image composition actually
+# change based on what the campaign really is (physical product vs SaaS vs local
+# business...).
 CATEGORY_GUIDANCE = {
     "e_ticaret_urun": (
-        "Bu bir e-ticaret/fiziksel ürün kampanyası. ad_copy'lerde fiyat avantajı, kargo/teslimat hızı, "
-        "stok sınırlılığı gibi somut aciliyet unsurlarına yer ver. image_prompt'lar ürünü net ve çekici "
-        "şekilde öne çıkaran, e-ticaret reklamlarına uygun temiz kompozisyonlarda olsun."
+        "This is an e-commerce/physical product campaign. In ad_copy, lean on concrete urgency "
+        "elements like price advantage, shipping speed, limited stock. image_prompts should show "
+        "the product clearly and appealingly, in clean e-commerce-ad compositions."
     ),
     "dijital_hizmet_saas": (
-        "Bu bir yazılım/SaaS/dijital hizmet kampanyası. ad_copy'lerde somut zaman/para tasarrufu, "
-        "ücretsiz deneme gibi unsurları vurgula. image_prompt'lar arayüz/ekran hissi veren veya soyut, "
-        "modern, teknolojik kompozisyonlarda olsun."
+        "This is a software/SaaS/digital service campaign. In ad_copy, emphasize concrete time/money "
+        "savings, free trial offers. image_prompts should feel like an interface/screen, or use "
+        "abstract, modern, tech-forward compositions."
     ),
     "mobil_uygulama": (
-        "Bu bir mobil uygulama kampanyası. ad_copy'de 'hemen indir', kolaylık ve anlık faydaya vurgu yap. "
-        "image_prompt'lar telefon ekranında uygulamayı kullanma anını ima eden kompozisyonlarda olsun."
+        "This is a mobile app campaign. In ad_copy, emphasize 'download now', convenience, and "
+        "instant benefit. image_prompts should imply the moment of using the app on a phone screen."
     ),
     "yerel_hizmet_isletme": (
-        "Bu yerel bir işletme/hizmet kampanyası. ad_copy'de güven, konum yakınlığı, randevu/iletişim "
-        "kolaylığına vurgu yap. image_prompt'lar sıcak, gerçekçi, samimi mekan/insan hissi veren "
-        "kompozisyonlarda olsun."
+        "This is a local business/service campaign. In ad_copy, emphasize trust, proximity, and ease "
+        "of booking/contact. image_prompts should feel warm, realistic, and genuine - real "
+        "place/people feel."
     ),
     "etkinlik_organizasyon": (
-        "Bu bir etkinlik/organizasyon kampanyası. ad_copy'de tarih aciliyeti ve deneyim vurgusu yap. "
-        "image_prompt'lar enerjik, davetkar bir etkinlik atmosferi taşısın."
+        "This is an event/organization campaign. In ad_copy, emphasize date urgency and the experience "
+        "itself. image_prompts should carry an energetic, inviting event atmosphere."
     ),
 }
 
+_CATEGORY_KEYS = list(CATEGORY_GUIDANCE.keys())
+
+
+class _CategoryClassification(BaseModel):
+    category: Literal[
+        "e_ticaret_urun", "dijital_hizmet_saas", "mobil_uygulama",
+        "yerel_hizmet_isletme", "etkinlik_organizasyon", "genel",
+    ] = Field(description="The single category that best fits the campaign")
+
 
 def _classify_product_category(context: str) -> str | None:
-    """Kampanyanın gerçek türünü (e-ticaret, SaaS, yerel hizmet vb.) tespit eder.
-    Sabit bir anahtar kelime sözlüğü yerine LLM'e sorduk çünkü gerçek metinler
-    çok çeşitli oluyor; LLM anlam bazında çok daha güvenilir sınıflandırıyor."""
-    categories = list(CATEGORY_GUIDANCE.keys())
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0)
+    """Detects the campaign's real type (e-commerce, SaaS, local service, etc).
+    We ask an LLM instead of using a fixed keyword dictionary because real-world
+    inputs vary too much for keywords to reliably classify - a semantic read is
+    far more robust."""
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0).with_structured_output(_CategoryClassification)
     prompt = ChatPromptTemplate.from_messages([
-        ("system", f"Aşağıdaki kampanya bilgisini oku ve SADECE şu kategorilerden birini yaz, "
-                   f"başka hiçbir şey yazma: {', '.join(categories)}, genel"),
+        ("system", "Read the following campaign information and classify it into exactly one category."),
         ("user", "{context}"),
     ])
     try:
         chain = prompt | llm
-        response = chain.invoke({"context": context})
-        category = response.content.strip().lower()
-        return category if category in categories else None
+        result: _CategoryClassification = chain.invoke({"context": context})
+        return result.category if result.category in _CATEGORY_KEYS else None
     except Exception as e:
         print(f"⚠️ [Research Agent] Kategori sınıflandırma başarısız: {e}")
         return None
 
 
 def _fetch_site_context(url: str) -> str | None:
-    """target_product bir URL ise gerçek sayfayı çekip ham metnini çıkarır.
-    Kullanıcı 'öne çıkan özellikler' vs. alanlarını boş bırakırsa ajanların
-    elinde ürün adından başka hiçbir şey kalmıyordu - bu jenerik çıktının asıl
-    sebebiydi. Burada siteden gerçek başlık/açıklama/gövde metni çekilip
-    ajanlara somut malzeme olarak veriliyor. BeautifulSoup gibi ek bir
-    bağımlılık gerekmesin diye kaba ama yeterli bir regex tabanlı ayıklama
-    kullanılıyor - LLM'e beslenecek metin için mükemmel temizlik şart değil.
+    """If target_product is a URL, fetches the real page and extracts its raw text.
+    When the user leaves 'key features' etc. blank, the agents previously had nothing
+    but the product name to work with - this was the real cause of generic output.
+    Here we fetch the page's real title/description/body text and give it to the
+    agents as concrete material. Uses crude-but-sufficient regex extraction instead
+    of a dependency like BeautifulSoup - the text fed to the LLM doesn't need to be
+    perfectly clean.
     """
     if not url.strip().lower().startswith(("http://", "https://")):
         return None
@@ -93,11 +103,11 @@ def _fetch_site_context(url: str) -> str | None:
         raw, re.IGNORECASE,
     )
 
-    # React/Vue gibi client-side render eden sitelerde ham HTML'in gövdesi neredeyse
-    # boş gelir (içerik JS ile sonradan doluyor) - ama SEO için çoğu modern e-ticaret
-    # sitesi structured data'yı (JSON-LD) sunucu tarafında, ham HTML'in içine gömer.
-    # Bu yüzden gövde metninden önce JSON-LD'deki ürün adı/açıklama/fiyat bilgisini
-    # ayrıca çıkarıyoruz - JS render edilmese bile bu genelde mevcut oluyor.
+    # On client-side rendered sites (React/Vue), the raw HTML body arrives nearly
+    # empty (content fills in later via JS) - but for SEO, most modern e-commerce
+    # sites still embed structured data (JSON-LD) server-side, right in the raw
+    # HTML. So before the body text, we also extract product name/description/price
+    # from any JSON-LD - this is usually present even when JS isn't rendered.
     ld_json_parts = []
     for ld_match in re.finditer(
         r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
@@ -116,11 +126,11 @@ def _fetch_site_context(url: str) -> str | None:
             price = offers.get("price") if isinstance(offers, dict) else None
             currency = offers.get("priceCurrency") if isinstance(offers, dict) else None
             if name:
-                ld_json_parts.append(f"Ürün adı (structured data): {name}")
+                ld_json_parts.append(f"Product name (structured data): {name}")
             if description:
-                ld_json_parts.append(f"Ürün açıklaması (structured data): {description}")
+                ld_json_parts.append(f"Product description (structured data): {description}")
             if price:
-                ld_json_parts.append(f"Fiyat (structured data): {price} {currency or ''}".strip())
+                ld_json_parts.append(f"Price (structured data): {price} {currency or ''}".strip())
 
     body = re.sub(r"<(script|style|nav|footer|header)[^>]*>.*?</\1>", " ", raw, flags=re.IGNORECASE | re.DOTALL)
     body = re.sub(r"<[^>]+>", " ", body)
@@ -129,39 +139,39 @@ def _fetch_site_context(url: str) -> str | None:
 
     parts = []
     if title_match:
-        parts.append(f"Sayfa başlığı: {html_lib.unescape(title_match.group(1)).strip()}")
+        parts.append(f"Page title: {html_lib.unescape(title_match.group(1)).strip()}")
     if desc_match:
-        parts.append(f"Sayfa açıklaması: {html_lib.unescape(desc_match.group(1)).strip()}")
-    parts.extend(ld_json_parts[:6])  # çok sayıda ürün şeması olan sayfalarda taşmasın
+        parts.append(f"Page description: {html_lib.unescape(desc_match.group(1)).strip()}")
+    parts.extend(ld_json_parts[:6])  # cap so pages with many product schemas don't flood the context
     if body:
-        parts.append(f"Sayfa içeriğinden alıntı: {body[:2500]}")
+        parts.append(f"Excerpt from page content: {body[:2500]}")
 
     return "\n".join(parts) if parts else None
 
 
 def _build_brief_context(state: CampaignState) -> str:
-    """Kullanıcının formda verdiği somut bilgileri tek bir blokta toplar.
-    Bunlar olmadan LLM ürünü/siteyi hiç bilmediği için jenerik, sektör
-    klişesi metinler üretiyordu - burada verilen her şey ajanların
-    kullanabileceği gerçek, somut girdi."""
-    lines = [f"Ürün/Hizmet: {state['target_product']}"]
+    """Collects everything concrete the user gave in the form into one block.
+    Without this the LLM knows nothing about the actual product/site and produces
+    generic, industry-cliché text - everything gathered here is real, concrete
+    input the agents can actually use."""
+    lines = [f"Product/service: {state['target_product']}"]
 
     site_context = _fetch_site_context(state["target_product"])
     if site_context:
-        lines.append(f"\nHedef sayfadan otomatik çekilen gerçek içerik (bunu birebir kullan, uydurma):\n{site_context}")
+        lines.append(f"\nReal content auto-fetched from the target page (use this verbatim, don't invent):\n{site_context}")
 
     if state.get("target_audience"):
-        lines.append(f"Kullanıcının belirttiği hedef kitle: {state['target_audience']}")
+        lines.append(f"Target audience specified by the user: {state['target_audience']}")
     if state.get("key_features"):
-        lines.append(f"Ürünün öne çıkan özellikleri / satış noktaları: {state['key_features']}")
+        lines.append(f"Product's key features / selling points: {state['key_features']}")
     if state.get("brand_tone"):
-        lines.append(f"İstenen marka tonu: {state['brand_tone']}")
+        lines.append(f"Requested brand tone: {state['brand_tone']}")
     if state.get("campaign_goal"):
-        lines.append(f"Kampanya hedefi: {state['campaign_goal']}")
+        lines.append(f"Campaign goal: {state['campaign_goal']}")
     if state.get("cta_preference"):
-        lines.append(f"İstenen harekete geçirici çağrı (CTA): {state['cta_preference']}")
+        lines.append(f"Requested call to action (CTA): {state['cta_preference']}")
     if state.get("extra_notes"):
-        lines.append(f"Kullanıcının ek istekleri/talimatları: {state['extra_notes']}")
+        lines.append(f"User's extra requests/instructions: {state['extra_notes']}")
     return "\n".join(lines)
 
 
@@ -172,12 +182,13 @@ def research_agent(state: CampaignState):
 
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "Sen uzman bir pazar araştırmacısı ve dijital pazarlama stratejistisin. "
-         "Sana verilen SOMUT bilgilere dayanarak (özellikle 'öne çıkan özellikler' ve 'ek istekler' varsa) "
-         "bir strateji brief'i yaz. Jenerik, sektör klişesi ifadelerden kaçın; verilen özellikleri, "
-         "kullanıcının belirttiği hedef kitleyi ve marka tonunu birebir yansıt. Eğer öne çıkan özellik "
-         "verilmediyse, ürün adından/URL'den makul bir çıkarım yap ama bunu varsayım olarak belirt."),
-        ("user", "{context}\n\nLütfen strateji brief'ini oluştur."),
+        ("system", "You are an expert market researcher and digital marketing strategist. "
+         "Based on the CONCRETE information given to you (especially 'key features' and 'extra requests' "
+         "if present), write a strategy brief. Avoid generic, industry-cliché phrasing; reflect the given "
+         "features, the user's stated audience, and brand tone directly. If no key features were given, "
+         "make a reasonable inference from the product name/URL but explicitly mark it as an assumption. "
+         "Write the ENTIRE brief in Turkish - the audience and the business are Turkish."),
+        ("user", "{context}\n\nPlease produce the strategy brief."),
     ])
     chain = prompt | llm
     response = chain.invoke({"context": context})
@@ -193,17 +204,29 @@ def research_agent(state: CampaignState):
 
 
 def _download_reference_image(url: str) -> io.BytesIO | None:
-    """Kullanıcının kampanyaya yüklediği gerçek ürün görselini worker'ın
-    ulaşabildiği dahili URL'den indirir (bkz. CampaignController::dispatchToAgentQueue)."""
+    """Downloads the user's real product image (uploaded to the campaign) from the
+    internal URL the worker can reach (see CampaignController::dispatchToAgentQueue)."""
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         buffer = io.BytesIO(response.content)
-        buffer.name = "reference.png"  # OpenAI SDK dosya tipini isimden çıkarıyor
+        buffer.name = "reference.png"  # the OpenAI SDK infers file type from the name
         return buffer
     except requests.RequestException as e:
         print(f"⚠️ [Creative Agent] Referans görsel indirilemedi ({url}): {e}")
         return None
+
+
+class _Creative(BaseModel):
+    angle: str = Field(description="A short (2-4 word) label for this variation's angle/hook - NOT an "
+                                    "audience, e.g. 'Price Advantage', 'Emotional Connection', 'Limited Offer'")
+    ad_copy: str = Field(description="The Turkish ad copy itself, 4-6 sentences, ~400-600 characters")
+    image_prompt: str = Field(description="An English image-generation prompt for this variation")
+
+
+class _CreativeSet(BaseModel):
+    creatives: list[_Creative] = Field(description="Exactly 3 variations, all for the SAME target audience, "
+                                                     "each with a distinctly different angle")
 
 
 def creative_agent(state: CampaignState):
@@ -214,67 +237,64 @@ def creative_agent(state: CampaignState):
     category_guidance = CATEGORY_GUIDANCE.get(state.get("product_category") or "", "")
     reference_urls = state.get("reference_image_urls") or []
 
-    # 1. AŞAMA: Metin üretimi
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
+    # STAGE 1: copy generation
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7).with_structured_output(_CreativeSet)
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "Sen ödüllü bir reklam yazarı ve sanat yönetmenisin. "
-         "Sana verilen strateji brief'ine VE kullanıcının verdiği somut ürün bilgilerine dayanarak "
-         "AYNI hedef kitleye yönelik 3 FARKLI REKLAM AÇISI (angle) ile 3 ayrı reklam metni ve görsel "
-         "promptu hazırla. Hedef kitleyi kullanıcının belirttiği/brief'teki şekilde SABİT tut - 3 farklı "
-         "kitle uydurma, sadece mesajın açısını/kancasını değiştir. Örneğin: biri somut özellik/fayda "
-         "vurgusu, biri duygusal/hikaye vurgusu, biri aciliyet/fırsat vurgusu gibi birbirinden belirgin "
-         "şekilde farklı açılardan yaklaşsın - üçü de aynı şeyi farklı kelimelerle söylemesin. "
-         "ÖNEMLİ: ad_copy'lerde 'öne çıkan özellikler' varsa bunları GERÇEK ve SOMUT şekilde ("
-         "genel geçer 'kaliteli', 'harika' gibi sıfatlar değil, verilen özelliklerin kendisi) kullan. "
-         "KESİNLİKLE UYDURMA: sana verilmeyen hiçbir somut rakam/oran/miktar YAZMA - '%20 indirim', "
-         "'ilk 100 kişiye', 'stokta sadece 5 adet', belirli bir fiyat gibi ifadeleri SADECE bu bilgi "
-         "sana context'te (özellikler, site içeriği, ek istekler) gerçekten verilmişse kullan. Verilmemişse "
-         "bu tür somut vaatler yerine genel ama dürüst bir aciliyet/fayda dili kullan (ör. 'sınırlı fırsat' "
-         "yerine gerçek bir oran uydurma). Bu gerçek reklam parasıyla yayınlanacak, yanlış/uydurma vaat "
-         "yasal ve güven riski taşır. "
-         "Kullanıcının belirttiği marka tonuna (ör. samimi, lüks, eğlenceli, profesyonel) harfiyen uy "
-         "ve varsa ek isteklerini/talimatlarını mutlaka uygula. "
-         "Kampanya hedefi belirtildiyse mesajın yapısını ona göre kur: 'Marka Bilinirliği' ise hikaye/marka "
-         "anlatımına, 'Satış/Dönüşüm' ise aciliyet ve somut faydaya, 'Web Sitesi Trafiği' ise merak uyandırmaya, "
-         "'Potansiyel Müşteri Toplama' ise güven/teklif netliğine, 'Uygulama İndirme' ise kolaylık/anlık faydaya "
-         "ağırlık ver. CTA tercihi belirtildiyse ad_copy'nin SON cümlesi mutlaka o çağrıyı (ör. 'Hemen Al', "
-         "'Ücretsiz Dene') birebir veya çok yakın bir ifadeyle içersin. "
-         "Her ad_copy KISA BİR SLOGAN OLMASIN: dikkat çeken bir açılış cümlesi, ürünün somut özelliklerine "
-         "dayanan bir gövde ve net bir harekete geçirici çağrı (CTA) içeren, Meta/Google Ads reklam metni "
-         "olarak kullanılabilecek 4-6 cümlelik, doyurucu bir metin yaz (yaklaşık 400-600 karakter). "
-         "image_prompt de jenerik stok-fotoğraf tarzında olmasın; ürünün/hizmetin somut özelliklerini ve "
-         "istenen marka tonunu görsel olarak yansıtsın.\n"
+        ("system", "You are an award-winning copywriter and art director. "
+         "Based on the strategy brief AND the concrete product information you're given, prepare 3 "
+         "different AD ANGLES for the SAME target audience - 3 separate ad copies and image prompts. "
+         "Keep the audience FIXED as stated by the user/brief - do not invent 3 different audiences, "
+         "only vary the message's angle/hook. For example: one leads with a concrete feature/benefit, "
+         "one with an emotional/story angle, one with urgency/limited-offer - make them distinctly "
+         "different approaches, not the same thing said in different words. "
+         "IMPORTANT: if 'key features' are given, use them literally and concretely in ad_copy (not "
+         "generic adjectives like 'high quality' or 'amazing' - the actual features themselves). "
+         "NEVER INVENT NUMBERS: do not write any concrete figure/percentage/quantity that wasn't given "
+         "to you - '20% off', 'first 100 customers', 'only 5 left in stock', a specific price - use "
+         "these ONLY if that exact information was actually provided in the context (features, site "
+         "content, extra requests). If not provided, use honest general urgency/benefit language instead "
+         "of a concrete promise (don't invent a real-sounding number for 'limited offer'). This will be "
+         "published with real ad spend; a false/invented promise is a legal and trust risk. "
+         "Strictly follow the user's requested brand tone (e.g. warm, luxury, playful, professional) "
+         "and apply any extra requests/instructions if given. "
+         "If a campaign goal is given, structure the message around it: 'Brand Awareness' -> "
+         "storytelling/brand narrative, 'Sales/Conversion' -> urgency and concrete benefit, 'Website "
+         "Traffic' -> curiosity, 'Lead Generation' -> trust/clarity of offer, 'App Installs' -> "
+         "convenience/instant benefit. If a CTA preference is given, the LAST sentence of ad_copy must "
+         "include that exact call to action or something very close to it (e.g. 'Buy Now', 'Try Free'). "
+         "Each ad_copy must NOT be a short slogan: write a full, satisfying ad text usable directly on "
+         "Meta/Google Ads - an attention-grabbing opening line, a body grounded in the product's concrete "
+         "features, and a clear CTA, 4-6 sentences (~400-600 characters). "
+         "image_prompt should not be generic stock-photo style either; it should visually reflect the "
+         "product/service's concrete features and the requested brand tone.\n"
          "{category_guidance}\n"
-         "Her varyasyon için kısa (2-4 kelime) bir 'angle' etiketi yaz - bu bir hedef kitle DEĞİL, "
-         "reklamın açısını/kancasını tanımlayan bir etiket olsun (ör. 'Fiyat Avantajı', 'Duygusal Bağ', "
-         "'Sınırlı Fırsat', 'Sosyal Kanıt').\n"
-         "Çıktını SADECE JSON formatında bir dizi olarak ver:\n"
-         '[\n'
-         '  {{"angle": "Kısa açı etiketi", "ad_copy": "Metin", "image_prompt": "English prompt"}}\n'
-         ']'),
-        ("user", "{context}\n\nStrateji Brief'i: {brief}"),
+         "Write ad_copy and angle in TURKISH (the audience and business are Turkish). Write image_prompt "
+         "in ENGLISH (for the image model)."),
+        ("user", "{context}\n\nStrategy brief: {brief}"),
     ])
     chain = prompt | llm
 
-    # LLM'e "3 farklı hedef kitle" dedik ama bu bir zorunluluk değil, bir istek -
-    # bazen 1-2 tanesini döndürüyor. Kullanıcı en az 3 metin/görsel arasından
-    # seçebilmeli, o yüzden eksik dönerse birkaç kez daha deneyip tamamlıyoruz.
-    creatives_list = []
+    # We asked the LLM for "3 variations" but that's a request, not a guarantee - it
+    # sometimes returns 1-2. The user needs to choose among at least 3 copies/images,
+    # so if it comes back short we retry a few times to fill it out.
+    creatives_list: list[dict] = []
     for attempt in range(3):
-        response = chain.invoke({"context": context, "brief": strategy_brief, "category_guidance": category_guidance})
-        match = re.search(r'\[.*\]', response.content, re.DOTALL)
         try:
-            creatives_list = json.loads(match.group(0)) if match else []
-        except json.JSONDecodeError:
+            result: _CreativeSet = chain.invoke({
+                "context": context, "brief": strategy_brief, "category_guidance": category_guidance,
+            })
+            creatives_list = [c.model_dump() for c in result.creatives]
+        except Exception as e:
+            print(f"⚠️ [Creative Agent] Yapılandırılmış çıktı hatası (deneme {attempt + 1}/3): {e}")
             creatives_list = []
         if len(creatives_list) >= 3:
             break
         print(f"⚠️ [Creative Agent] Beklenen 3 yerine {len(creatives_list)} kreatif döndü (deneme {attempt + 1}/3), tekrar deneniyor...")
 
-    # "400-600 karakter" istedik ama bu bir talep, zorunluluk değil - LLM bazen çok
-    # kısa (sloganlaşır) ya da çok uzun (Meta/Google'ın pratik sınırlarını zorlar)
-    # yazabiliyor. Sert bir üst sınırla kırpıyoruz, kısa olanı reddetmiyoruz (yeniden
-    # denemek ekstra LLM çağrısı demek) ama en azından logluyoruz.
+    # We asked for "400-600 characters" but that's a request, not a guarantee - the
+    # LLM sometimes writes too short (turns into a slogan) or too long (pushes past
+    # Meta/Google's practical limits). We hard-cap the long ones instead of rejecting
+    # short ones (retrying costs an extra LLM call), but at least log it.
     for creative in creatives_list:
         ad_copy = creative.get("ad_copy") or ""
         if len(ad_copy) > 900:
@@ -282,9 +302,9 @@ def creative_agent(state: CampaignState):
         elif len(ad_copy) < 150:
             print(f"⚠️ [Creative Agent] '{creative.get('angle')}' beklenenden kısa ({len(ad_copy)} karakter)")
 
-    # 2. AŞAMA: Her kreatif için ayrı görsel üretimi (kullanıcı üçünden birini seçebilsin diye).
-    # Kullanıcı kendi ürün görseli yüklediyse (video değil - edit API görsel ister),
-    # sıfırdan hayal etmek yerine o gerçek görseli referans alıp düzenliyoruz.
+    # STAGE 2: separate image generation per creative (so the user can pick among the 3).
+    # If the user uploaded their own product image (not video - the edit API needs an
+    # image), ground the generation in that real photo instead of imagining from scratch.
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
     reference_image = _download_reference_image(reference_urls[0]) if reference_urls else None
     if reference_image:
@@ -299,8 +319,8 @@ def creative_agent(state: CampaignState):
                     model="gpt-image-1",
                     image=reference_image,
                     prompt=(
-                        "Bu gerçek ürün/mekan görselini referans alarak, ürünün gerçek görünümünü koruyan "
-                        f"profesyonel bir reklam görseline dönüştür: {creative['image_prompt']}"
+                        "Using this real product/venue photo as reference, transform it into a "
+                        f"professional ad image that preserves the product's real appearance: {creative['image_prompt']}"
                     ),
                     size="1024x1024",
                     n=1,
@@ -315,9 +335,9 @@ def creative_agent(state: CampaignState):
             image_data = image_response.data[0]
 
             if getattr(image_data, "b64_json", None):
-                # Dosyaya yazmak yerine data URI olarak state'e koyuyoruz:
-                # worker kendi container'ında çalışıyor, dosya hiçbir yerden
-                # erişilebilir olmazdı. Frontend bunu doğrudan <img src> olarak kullanabilir.
+                # Stored as a data URI in state instead of a file: the worker runs in
+                # its own container, a file wouldn't be reachable from anywhere.
+                # The frontend can use this directly as an <img src>.
                 creative["generated_image_url"] = f"data:image/png;base64,{image_data.b64_json}"
             elif getattr(image_data, "url", None):
                 creative["generated_image_url"] = image_data.url
@@ -335,15 +355,26 @@ def creative_agent(state: CampaignState):
     }
 
 
+class _Targeting(BaseModel):
+    age_range: str = Field(description="A realistic numeric age range, e.g. '25-45' (not free text)")
+    interests: list[str] = Field(default_factory=list, description="A short list of relevant interest categories")
+
+
+class _MediaPlan(BaseModel):
+    targeting: _Targeting
+    budget_distribution: dict[str, float] = Field(
+        description="Maps EACH platform key given in the prompt to its percentage share (summing to ~100)")
+
+
 def media_agent(state: CampaignState):
     print(f"📊 [Media Agent] Hedefleme ve bütçe planlaması yapılıyor (bütçe: {state['daily_budget']})...")
     strategy_brief = state.get("strategy_brief", "")
     current_logs = state.get("audit_log", [])
 
-    # Sadece gerçekten yayın yapabildiğimiz platformlar arasında dağıtım yap - kullanıcı
-    # youtube/tiktok/x seçmiş olabilir ama bunlar için henüz publisher yok, dahil etmenin
-    # anlamı yok. Kullanıcı hiç google_ads/instagram/facebook seçmediyse (veya platforms
-    # bilgisi hiç gelmediyse) makul bir varsayılan olarak ikisine de eşit dağıt.
+    # Only distribute across platforms we can actually publish to - the user may have
+    # picked youtube/tiktok/x but there's no publisher for those yet, no point including
+    # them. If the user picked neither google_ads nor instagram/facebook (or platform
+    # info never arrived), fall back to a reasonable default: split evenly across both.
     campaign_platforms = state.get("platforms") or []
     wants_google = "google_ads" in campaign_platforms
     wants_meta = "instagram" in campaign_platforms or "facebook" in campaign_platforms
@@ -351,39 +382,31 @@ def media_agent(state: CampaignState):
         wants_google = wants_meta = True
     active_platforms = [p for p, wants in [("google_ads", wants_google), ("meta", wants_meta)] if wants]
 
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0)
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0).with_structured_output(_MediaPlan)
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "Sen kıdemli bir Medya Planlama Uzmanısın. "
-         "Sana verilecek strateji brief'ini ve günlük bütçeyi kullanarak SADECE şu platformlar "
-         "arasında ({platforms}) bir dağıtım planı yap - başka platform ekleme, listede bir tek "
-         "platform varsa ona %100 ver. "
-         "age_range için gerçekçi bir sayısal aralık yaz (ör. '25-45'), metin değil. "
-         "Çıktını SADECE aşağıdaki gibi bir JSON objesi olarak ver, platform anahtarlarını AYNEN "
-         "verdiğim gibi (küçük harf, alt tire) kullan. Markdown veya açıklama ekleme:\n"
-         "{{\n"
-         '  "targeting": {{"age_range": "25-45", "interests": ["Gaming", "Technology"]}},\n'
-         '  "budget_distribution": {{"google_ads": 60, "meta": 40}}\n'
-         "}}"),
-        ("user", "Brief: {brief}\nGünlük Bütçe: {budget} TL"),
+        ("system", "You are a senior Media Planning specialist. "
+         "Using the strategy brief and daily budget you're given, produce a distribution plan across "
+         "ONLY these platforms: {platforms} - do not add any other platform; if only one platform is "
+         "listed, give it 100%. interests should be in English; age_range should be a realistic numeric "
+         "range."),
+        ("user", "Brief: {brief}\nDaily budget: {budget} TRY"),
     ])
     chain = prompt | llm
-    response = chain.invoke({
-        "brief": strategy_brief,
-        "budget": state["daily_budget"],
-        "platforms": ", ".join(active_platforms),
-    })
-
-    match = re.search(r'\{.*\}', response.content, re.DOTALL)
     try:
-        media_plan = json.loads(match.group(0)) if match else {}
-    except json.JSONDecodeError as e:
-        print(f"⚠️ [Media Agent] JSON format hatası: {e}")
+        result: _MediaPlan = chain.invoke({
+            "brief": strategy_brief,
+            "budget": state["daily_budget"],
+            "platforms": ", ".join(active_platforms),
+        })
+        media_plan = result.model_dump()
+    except Exception as e:
+        print(f"⚠️ [Media Agent] Yapılandırılmış çıktı hatası: {e}")
         media_plan = {}
 
-    # Güvenlik ağı: LLM istenmeyen bir platform eklerse ya da yüzdeler toplamı 100 değilse
-    # (ya da tek platform varsa payını unutursa), tek platform için her zaman %100'e,
-    # iki platform için LLM'in oranını normalize ederek düzeltiyoruz - publisher'lar bu
-    # yüzdeye göre kendi bütçe paylarını hesaplayacak, yanlış değer gerçek harcamayı bozar.
+    # Safety net: if the LLM adds an unwanted platform, or the percentages don't sum to
+    # 100 (or it forgets a single platform's share entirely), we always force a single
+    # platform to 100%, and normalize the LLM's ratio for two platforms - publishers
+    # compute their own budget share from this, a wrong value distorts real spend.
     raw_distribution = media_plan.get("budget_distribution", {})
     distribution = {p: float(raw_distribution.get(p) or 0) for p in active_platforms}
     total = sum(distribution.values())

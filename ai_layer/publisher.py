@@ -4,11 +4,11 @@ Kampanya PAUSED (duraklatılmış) olarak oluşturulur: gerçekten yayına almak
 (ENABLED) isteyen kullanıcı bunu Google Ads panelinden kendisi yapar - böylece
 API üzerinden yanlışlıkla gerçek harcama başlamaz.
 """
-import json
 import re
 import uuid
 from urllib.parse import urlparse
 
+from pydantic import BaseModel, Field
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
@@ -55,31 +55,38 @@ def _derive_keyword(target_product: str) -> str:
     return " ".join(words[:5]).strip() or "Reklam"
 
 
+class _RsaAssets(BaseModel):
+    headlines: list[str] = Field(description="5 headlines, each AT MOST 30 characters, each from a "
+                                               "different angle (feature, CTA, brand/trust, urgency, benefit)")
+    descriptions: list[str] = Field(description="3 descriptions, each AT MOST 90 characters")
+
+
 def _generate_rsa_assets(ad_copy: str, target_product: str, strategy_brief: str | None) -> dict:
-    """Uzun (400-600 karakter) reklam metnini Google Ads'in izin verdiği kısa
-    başlıklara (<=30 karakter) ve açıklamalara (<=90 karakter) dönüştürür."""
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.4)
+    """Converts the long (400-600 character) ad copy into the short headlines
+    (<=30 chars) and descriptions (<=90 chars) Google Ads requires."""
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.4).with_structured_output(_RsaAssets)
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "Sen bir Google Ads Duyarlı Arama Ağı Reklamı (Responsive Search Ad) uzmanısın. "
-         "Sana verilen uzun reklam metnine dayanarak Google Ads kısıtlarına birebir uyan varlıklar üret:\n"
-         "- 5 adet başlık (headline), HER BİRİ EN FAZLA 30 KARAKTER\n"
-         "- 3 adet açıklama (description), HER BİRİ EN FAZLA 90 KARAKTER\n"
-         "Başlıklar birbirinden farklı açılardan (ürün özelliği, CTA, marka/güven, aciliyet, fayda) olsun. "
-         "Karakter sınırlarını KESİNLİKLE aşma. Emoji kullanma. "
-         "Çıktını SADECE şu JSON formatında ver:\n"
-         '{{"headlines": ["...", "...", "...", "...", "..."], "descriptions": ["...", "...", "..."]}}'),
-        ("user", "Ürün: {product}\nStrateji: {brief}\nReklam Metni: {ad_copy}"),
+        ("system", "You are a Google Ads Responsive Search Ad specialist. "
+         "Based on the long ad copy you're given, produce assets that strictly respect Google Ads' "
+         "constraints: 5 headlines (each AT MOST 30 characters) and 3 descriptions (each AT MOST 90 "
+         "characters). Headlines should come from distinctly different angles (product feature, CTA, "
+         "brand/trust, urgency, benefit). NEVER exceed the character limits. No emoji. "
+         "Write all text in TURKISH (the audience and business are Turkish)."),
+        ("user", "Product: {product}\nStrategy: {brief}\nAd copy: {ad_copy}"),
     ])
     chain = prompt | llm
-    response = chain.invoke({
-        "product": target_product,
-        "brief": (strategy_brief or "")[:800],
-        "ad_copy": ad_copy,
-    })
-    match = re.search(r"\{.*\}", response.content, re.DOTALL)
-    data = json.loads(match.group(0)) if match else {}
+    try:
+        result: _RsaAssets = chain.invoke({
+            "product": target_product,
+            "brief": (strategy_brief or "")[:800],
+            "ad_copy": ad_copy,
+        })
+        data = result.model_dump()
+    except Exception:
+        data = {}
 
-    # LLM karakter sınırına uysa da son bir güvenlik ağı olarak sert kırpma uyguluyoruz
+    # Even though the LLM is asked to respect the character limits, apply a hard
+    # truncation as a last safety net.
     headlines = [h[:30] for h in data.get("headlines", []) if h][:5]
     descriptions = [d[:90] for d in data.get("descriptions", []) if d][:3]
 

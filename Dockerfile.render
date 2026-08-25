@@ -7,8 +7,16 @@
 #
 # Build context repo kökü olmalı (render.yaml: dockerContext: .) çünkü hem
 # backend/ hem ai_layer/ dizinlerinden dosya kopyalamamız gerekiyor.
+#
+# Multi-stage: derleme araçları (gcc, autoconf, composer, pip cache...) sadece
+# "builder" aşamasında yaşıyor, son imaja hiç girmiyor - swoole'u derlemek tek
+# başına 300MB+ build-essential gerektiriyordu, hiçbiri çalışma zamanında
+# lazım değil. İki aşama da AYNI taban imajı (php:8.4-cli) kullanıyor ki
+# derlenen PHP extension'ları ve Python venv'i çalışma zamanı aşamasına
+# sorunsuz kopyalanabilsin (farklı bir taban imaj kullanmak glibc/kütüphane
+# uyuşmazlığı riski taşırdı).
 
-FROM php:8.4-cli
+FROM php:8.4-cli AS builder
 
 RUN apt-get update && apt-get install -y \
         libpq-dev \
@@ -20,18 +28,10 @@ RUN apt-get update && apt-get install -y \
         libbrotli-dev \
         python3 \
         python3-venv \
-        supervisor \
     && docker-php-ext-install pdo pdo_pgsql pgsql zip pcntl \
     && pecl install swoole \
     && docker-php-ext-enable swoole \
     && rm -rf /var/lib/apt/lists/*
-
-# Kampanya görsel/video yüklemeleri için varsayılan PHP limitleri (2M) yetersiz
-RUN { \
-        echo 'upload_max_filesize=100M'; \
-        echo 'post_max_size=110M'; \
-        echo 'memory_limit=256M'; \
-    } > /usr/local/etc/php/conf.d/uploads.ini
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -54,6 +54,38 @@ WORKDIR /app/ai_layer
 COPY ai_layer/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY ai_layer/*.py ./
+
+
+# ---------------------------------------------------------------------------
+# Çalışma zamanı aşaması: sadece gerçekten çalıştırmak için gereken paketler
+# ve derlenmiş çıktılar - build araçları, composer, pip cache burada yok.
+FROM php:8.4-cli AS runtime
+
+RUN apt-get update && apt-get install -y \
+        libpq5 \
+        libzip5 \
+        libbrotli1 \
+        python3 \
+        supervisor \
+    && rm -rf /var/lib/apt/lists/*
+
+# builder aşamasında derlenen PHP extension'ları (pdo_pgsql, pgsql, zip, pcntl,
+# swoole) ve onları etkinleştiren .ini dosyaları - aynı taban imaj olduğu için
+# yollar birebir eşleşiyor.
+COPY --from=builder /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
+COPY --from=builder /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
+
+# Kampanya görsel/video yüklemeleri için varsayılan PHP limitleri (2M) yetersiz
+RUN { \
+        echo 'upload_max_filesize=100M'; \
+        echo 'post_max_size=110M'; \
+        echo 'memory_limit=256M'; \
+    } > /usr/local/etc/php/conf.d/uploads.ini
+
+# Tamamen kurulmuş Laravel uygulaması (vendor/ dahil) ve Python venv'i
+COPY --from=builder /var/www/html /var/www/html
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 COPY docker/supervisord.conf /etc/supervisor/supervisord.conf
 COPY docker/docker-entrypoint.sh /docker-entrypoint.sh
